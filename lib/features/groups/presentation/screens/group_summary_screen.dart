@@ -33,6 +33,48 @@ class _GroupSummaryScreenState extends ConsumerState<GroupSummaryScreen> {
     );
   }
 
+  void _confirmCloseWeek(int weekIndex, int weekNumber) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Cerrar Semana $weekNumber'),
+        content: const Text(
+          '¿Deseas cerrar esta semana y redistribuir automáticamente el remanente/excedente entre las semanas presupuestarias futuras?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.of(dialogContext).pop();
+
+              final success = await ref
+                  .read(groupsNotifierProvider.notifier)
+                  .closeWeekAndRedistribute(
+                    groupId: widget.groupId,
+                    closingWeekIndex: weekIndex,
+                  );
+
+              if (success) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Semana $weekNumber cerrada y presupuesto redistribuido con éxito.',
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('Cerrar y Redistribuir'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(groupsNotifierProvider);
@@ -237,13 +279,31 @@ class _GroupSummaryScreenState extends ConsumerState<GroupSummaryScreen> {
                               margin: const EdgeInsets.symmetric(vertical: 4),
                               child: ListTile(
                                 title: Text('Semana ${week.weekNumber} ($startStr - $endStr)'),
-                                subtitle: Text(
-                                  'Planificado: ${Formatters.formatCurrency(week.plannedAmount)}',
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Ajustado: ${Formatters.formatCurrency(week.adjustedAmount)} (Orig: ${Formatters.formatCurrency(week.plannedAmount)})',
+                                    ),
+                                    Text(
+                                      'Gastado: ${Formatters.formatCurrency(week.spentAmount)}',
+                                      style: TextStyle(
+                                        color: week.spentAmount > week.adjustedAmount
+                                            ? Colors.red
+                                            : Colors.grey[700],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                trailing: Text(
-                                  Formatters.formatCurrency(week.spentAmount),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                                trailing: OutlinedButton(
+                                  onPressed: () => _confirmCloseWeek(
+                                    index,
+                                    week.weekNumber,
+                                  ),
+                                  child: const Text(
+                                    'Cerrar',
+                                    style: TextStyle(fontSize: 12),
                                   ),
                                 ),
                               ),

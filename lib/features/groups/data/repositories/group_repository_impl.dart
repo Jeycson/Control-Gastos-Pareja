@@ -90,4 +90,13 @@ class GroupRepositoryImpl implements GroupRepository {
       throw ServerException(message: 'Error al calcular total gastado: $e');
     }
   }
+
+  @override
+  Future<void> updateBudgetWeeks(List<BudgetWeekEntity> weeks) async {
+    try {
+      await remoteDataSource.updateBudgetWeeks(weeks);
+    } catch (e) {
+      throw ServerException(message: 'Error al actualizar semanas de presupuesto: $e');
+    }
+  }
 }

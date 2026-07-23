@@ -5,6 +5,7 @@ import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/repositories/group_repository_impl.dart';
 import '../../domain/entities/group_entity.dart';
 import '../../domain/repositories/group_repository.dart';
+import '../../domain/usecases/close_week_usecase.dart';
 import '../../domain/usecases/create_group_usecase.dart';
 import '../../domain/usecases/get_group_summary_usecase.dart';
 import '../../domain/usecases/get_user_groups_usecase.dart';
@@ -32,6 +33,10 @@ final joinGroupUseCaseProvider = Provider<JoinGroupUseCase>((ref) {
 
 final getGroupSummaryUseCaseProvider = Provider<GetGroupSummaryUseCase>((ref) {
   return GetGroupSummaryUseCase(ref.watch(groupRepositoryProvider));
+});
+
+final closeWeekUseCaseProvider = Provider<CloseWeekUseCase>((ref) {
+  return CloseWeekUseCase(ref.watch(groupRepositoryProvider));
 });
 
 class GroupsState {
@@ -72,6 +77,7 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
   final CreateGroupUseCase createGroupUseCase;
   final JoinGroupUseCase joinGroupUseCase;
   final GetGroupSummaryUseCase getGroupSummaryUseCase;
+  final CloseWeekUseCase closeWeekUseCase;
   final Ref ref;
 
   GroupsNotifier({
@@ -79,6 +85,7 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
     required this.createGroupUseCase,
     required this.joinGroupUseCase,
     required this.getGroupSummaryUseCase,
+    required this.closeWeekUseCase,
     required this.ref,
   }) : super(GroupsState.initial());
 
@@ -152,6 +159,23 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
+
+  Future<bool> closeWeekAndRedistribute({
+    required String groupId,
+    required int closingWeekIndex,
+  }) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await closeWeekUseCase(
+        CloseWeekParams(groupId: groupId, closingWeekIndex: closingWeekIndex),
+      );
+      await loadGroupSummary(groupId);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      return false;
+    }
+  }
 }
 
 final groupsNotifierProvider =
@@ -161,6 +185,7 @@ final groupsNotifierProvider =
     createGroupUseCase: ref.watch(createGroupUseCaseProvider),
     joinGroupUseCase: ref.watch(joinGroupUseCaseProvider),
     getGroupSummaryUseCase: ref.watch(getGroupSummaryUseCaseProvider),
+    closeWeekUseCase: ref.watch(closeWeekUseCaseProvider),
     ref: ref,
   );
 });

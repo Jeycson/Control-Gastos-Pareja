@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../domain/entities/budget_week_entity.dart';
 import '../models/budget_week_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
@@ -20,6 +21,7 @@ abstract class GroupRemoteDataSource {
   Future<List<GroupMemberModel>> getGroupMembers(String groupId);
   Future<List<BudgetWeekModel>> getGroupBudgetWeeks(String groupId);
   Future<double> getGroupTotalSpent(String groupId);
+  Future<void> updateBudgetWeeks(List<BudgetWeekEntity> weeks);
 }
 
 class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
@@ -100,7 +102,7 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         'end_date': weekEnd.toIso8601String().split('T').first,
         'planned_amount': weeklyPlanned,
         'spent_amount': 0.00,
-        'adjusted_amount': 0.00,
+        'adjusted_amount': weeklyPlanned,
       });
     }
 
@@ -128,7 +130,6 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
 
     final group = GroupModel.fromJson(groupResponse);
 
-    // Insert user into group_members
     await supabaseClient.from('group_members').upsert({
       'group_id': group.id,
       'user_id': userId,
@@ -176,5 +177,15 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
       total += (item['amount'] as num).toDouble();
     }
     return total;
+  }
+
+  @override
+  Future<void> updateBudgetWeeks(List<BudgetWeekEntity> weeks) async {
+    for (final week in weeks) {
+      await supabaseClient.from('budget_weeks').update({
+        'adjusted_amount': week.adjustedAmount,
+        'spent_amount': week.spentAmount,
+      }).eq('id', week.id);
+    }
   }
 }
