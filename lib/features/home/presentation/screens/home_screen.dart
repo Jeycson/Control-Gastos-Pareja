@@ -57,9 +57,34 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
                 children: [
+                  ElevatedButton.icon(
+                    onPressed: () => context.push('/add-transaction'),
+                    icon: const Icon(Icons.flash_on),
+                    label: const Text('Nuevo Gasto ⚡'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => context.push('/transactions'),
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text('Transacciones'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
                   ElevatedButton.icon(
                     onPressed: () => context.push('/wallets'),
                     icon: const Icon(Icons.account_balance_wallet_outlined),
@@ -71,7 +96,6 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
                   ElevatedButton.icon(
                     onPressed: () => context.push('/groups'),
                     icon: const Icon(Icons.groups_outlined),

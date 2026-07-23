@@ -10,6 +10,8 @@ import '../../features/groups/presentation/screens/create_group_screen.dart';
 import '../../features/groups/presentation/screens/group_summary_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/transactions/presentation/screens/add_transaction_screen.dart';
+import '../../features/transactions/presentation/screens/transactions_list_screen.dart';
 import '../../features/wallets/presentation/screens/wallets_screen.dart';
 
 class RouterNotifier extends ChangeNotifier {
@@ -85,6 +87,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id'] ?? '';
           return GroupSummaryScreen(groupId: id);
         },
+      ),
+      GoRoute(
+        path: '/transactions',
+        name: 'transactions',
+        builder: (context, state) => const TransactionsListScreen(),
+      ),
+      GoRoute(
+        path: '/add-transaction',
+        name: 'add-transaction',
+        builder: (context, state) => const AddTransactionScreen(),
       ),
       GoRoute(
         path: '/login',
