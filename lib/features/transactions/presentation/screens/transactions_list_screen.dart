@@ -45,6 +45,10 @@ class _TransactionsListScreenState
     final notifier = ref.read(transactionsNotifierProvider.notifier);
     final filtered = state.filteredTransactions;
 
+    if (widget.groupId != null && widget.groupId!.isNotEmpty) {
+      ref.watch(realtimeGroupTransactionsProvider(widget.groupId!));
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transacciones Recientes'),

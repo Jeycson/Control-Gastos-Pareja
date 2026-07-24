@@ -59,6 +59,12 @@
    - **Vista de Gastos Extraordinarios**: Filtrado en tiempo real de transacciones no me recurrente (`isExtraordinary == true`) con insignias y totales.
    - **Optimización Riverpod**: Cache de datos en StateNotifier family y sub-providers de grano fino (`dashboardProgressProvider`, `dashboardCategoryExpensesProvider`, `dashboardExtraordinaryExpensesProvider`) para evitar refetching y rebuilds innecesarios.
 
+10. **Conexión Supabase Realtime & Sincronización Reactiva**:
+    - **Suscripción Filtrada por Grupo**: Escucha eventos `INSERT`, `UPDATE` y `DELETE` en la tabla `transactions` con filtro por `group_id`.
+    - **Actualizaciones Incrementales**: `upsertTransaction` en `TransactionsNotifier` y actualización en caliente de métricas del Dashboard y balances de Billeteras sin recargar toda la pantalla.
+    - **Reconexión con Exponential Backoff & Jitter**: Reintenta automáticamente la suscripción al canal si la conexión falla o se cierra (1s, 2s, 4s, 8s, 16s, máx 32s).
+    - **Deduplicación Offline + Realtime**: Generación de UUIDs RFC4122 client-side y verificación en `TransactionRepositoryImpl` para evitar que la cola offline duplique entradas transmitidas por Realtime.
+
 ---
 
 ## 📁 Archivos Modificados / Creados
@@ -80,12 +86,12 @@ lib/
 │   ├── router/ (app_router.dart)
 │   ├── theming/ (app_theme.dart)
 │   ├── usecases/ (usecase.dart)
-│   └── utils/ (formatters.dart)
+│   └── utils/ (formatters.dart, uuid_generator.dart)
 ├── features/
 │   ├── auth/ (domain, data, presentation)
 │   ├── wallets/ (domain, data, presentation)
 │   ├── groups/ (domain, data, presentation, services/budget_recalculator.dart)
-│   ├── transactions/ (domain, data, presentation)
+│   ├── transactions/ (domain, data, presentation, datasources/transaction_realtime_data_source.dart)
 │   ├── settlements/ (domain, data, presentation, services/settlement_calculator.dart)
 │   └── dashboard/ (domain, presentation, services/dashboard_calculator.dart)
 ├── main.dart
@@ -95,6 +101,8 @@ test/
 │   ├── groups/data/repositories/group_repository_impl_test.dart
 │   ├── groups/domain/services/budget_recalculator_test.dart
 │   ├── transactions/data/repositories/transaction_repository_impl_test.dart
+│   ├── transactions/data/datasources/transaction_realtime_data_source_test.dart
+│   ├── transactions/presentation/providers/realtime_transactions_test.dart
 │   ├── settlements/domain/services/settlement_calculator_test.dart
 │   └── dashboard/ (domain/services/dashboard_calculator_test.dart, presentation/providers/dashboard_provider_test.dart, presentation/widgets/double_progress_bar_widget_test.dart, presentation/widgets/category_chart_widget_test.dart)
 └── widget_test.dart
@@ -105,10 +113,10 @@ test/
 ## 🏛️ Arquitectura Definida
 
 - **Clean Architecture Modular**: Aislamiento estricto entre `domain` (entidades puras, use cases, contratos e interfaces), `data` (modelos, datasources remotos/locales, repositorios) y `presentation` (widgets, screens y Riverpod providers).
-- **Gestión de Estado**: `flutter_riverpod` (`StateNotifierProvider`, `Provider.family`).
+- **Gestión de Estado**: `flutter_riverpod` (`StateNotifierProvider`, `Provider.family`, `StreamProvider.family`).
 - **Navegación Declarativa**: `go_router` con guardas de autenticación dinámicas.
 - **Módulos de Dominio Puros**: Calculadoras puras inmutables (`BudgetRecalculator`, `SettlementCalculator`, `DashboardCalculator`) sin acoplamiento a frameworks.
-- **Calidad de Código**: 44 pruebas unitarias y de widgets ejecutadas con **100% de éxito** y **0 advertencias en `flutter analyze`**.
+- **Calidad de Código**: 48 pruebas unitarias y de widgets ejecutadas con **100% de éxito** y **0 advertencias en `flutter analyze`**.
 
 ---
 

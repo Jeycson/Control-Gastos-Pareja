@@ -38,6 +38,31 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
 
   @override
   Future<TransactionModel> createTransaction(TransactionModel transaction) async {
+    try {
+      // Attempt Atomic PostgreSQL RPC call to avoid race conditions
+      final rpcResult = await supabaseClient.rpc(
+        'register_transaction_atomic',
+        params: {
+          'p_id': transaction.id,
+          'p_wallet_id': transaction.walletId,
+          'p_user_id': transaction.userId,
+          'p_group_id': transaction.groupId,
+          'p_amount': transaction.amount,
+          'p_category': transaction.category,
+          'p_is_shared': transaction.isShared,
+          'p_is_extraordinary': transaction.isExtraordinary,
+          'p_description': transaction.description,
+          'p_created_at': transaction.createdAt.toIso8601String(),
+        },
+      );
+
+      if (rpcResult != null) {
+        return TransactionModel.fromJson(Map<String, dynamic>.from(rpcResult as Map));
+      }
+    } catch (_) {
+      // Fallback to client multi-query if RPC function is not yet created in PostgreSQL
+    }
+
     // 1. Insert transaction into Supabase
     final response = await supabaseClient
         .from('transactions')

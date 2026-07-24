@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
+import '../../../transactions/presentation/providers/transactions_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../widgets/category_chart_widget.dart';
 import '../widgets/double_progress_bar_widget.dart';
@@ -58,6 +59,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ref.watch(dashboardCategoryExpensesProvider(_selectedGroupId));
     final extraordinaryExpenses =
         ref.watch(dashboardExtraordinaryExpensesProvider(_selectedGroupId));
+
+    if (_selectedGroupId != null && _selectedGroupId!.isNotEmpty) {
+      ref.watch(realtimeGroupTransactionsProvider(_selectedGroupId!));
+    }
 
     return Scaffold(
       appBar: AppBar(

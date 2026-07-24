@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/utils/uuid_generator.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../wallets/domain/entities/wallet_entity.dart';
@@ -98,7 +99,7 @@ class _AddTransactionScreenState
     final router = GoRouter.of(context);
 
     final newTx = TransactionEntity(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: UuidGenerator.generateV4(),
       walletId: _selectedWallet!.id,
       userId: user.id,
       groupId: _isShared ? _selectedGroupId : null,
@@ -324,18 +325,27 @@ class _AddTransactionScreenState
                             child: InkWell(
                               onTap: () => _onKeypadTap(key),
                               borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                height: 52,
-                                alignment: Alignment.center,
-                                child: key == 'DEL'
-                                    ? const Icon(Icons.backspace_outlined)
-                                    : Text(
-                                        key,
-                                        style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
+                              child: Semantics(
+                                button: true,
+                                label: key == 'DEL'
+                                    ? 'Borrar dígito'
+                                    : (key == '.' ? 'Punto decimal' : 'Dígito $key'),
+                                child: Container(
+                                  height: 52,
+                                  alignment: Alignment.center,
+                                  child: key == 'DEL'
+                                      ? const Icon(
+                                          Icons.backspace_outlined,
+                                          semanticLabel: 'Borrar dígito',
+                                        )
+                                      : Text(
+                                          key,
+                                          style: const TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
-                                      ),
+                                ),
                               ),
                             ),
                           );

@@ -34,6 +34,7 @@ class TransactionModel extends TransactionEntity {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'wallet_id': walletId,
       'user_id': userId,
       if (groupId != null) 'group_id': groupId,

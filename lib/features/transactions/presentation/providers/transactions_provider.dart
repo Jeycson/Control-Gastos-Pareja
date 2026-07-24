@@ -5,13 +5,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/network/supabase_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../dashboard/domain/services/dashboard_calculator.dart';
+import '../../../dashboard/presentation/providers/dashboard_provider.dart';
+import '../../../groups/domain/entities/group_entity.dart';
 import '../../../wallets/presentation/providers/wallets_provider.dart';
+import '../../data/datasources/transaction_realtime_data_source.dart';
 import '../../data/datasources/transaction_remote_data_source.dart';
 import '../../data/repositories/transaction_repository_impl.dart';
+import '../../domain/entities/realtime_transaction_event.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/transaction_repository.dart';
 import '../../domain/usecases/create_transaction_usecase.dart';
 import '../../domain/usecases/get_transactions_usecase.dart';
+import '../../domain/usecases/subscribe_group_transactions_usecase.dart';
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('Initialize SharedPreferences in main.dart');
@@ -26,9 +32,15 @@ final transactionRemoteDataSourceProvider =
   return TransactionRemoteDataSourceImpl(ref.watch(supabaseClientProvider));
 });
 
+final transactionRealtimeDataSourceProvider =
+    Provider<TransactionRealtimeDataSource>((ref) {
+  return TransactionRealtimeDataSourceImpl(ref.watch(supabaseClientProvider));
+});
+
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepositoryImpl(
     remoteDataSource: ref.watch(transactionRemoteDataSourceProvider),
+    realtimeDataSource: ref.watch(transactionRealtimeDataSourceProvider),
     connectivity: ref.watch(connectivityProvider),
     prefs: ref.watch(sharedPreferencesProvider),
   );
@@ -41,6 +53,12 @@ final getTransactionsUseCaseProvider = Provider<GetTransactionsUseCase>((ref) {
 final createTransactionUseCaseProvider =
     Provider<CreateTransactionUseCase>((ref) {
   return CreateTransactionUseCase(ref.watch(transactionRepositoryProvider));
+});
+
+final subscribeGroupTransactionsUseCaseProvider =
+    Provider<SubscribeGroupTransactionsUseCase>((ref) {
+  return SubscribeGroupTransactionsUseCase(
+      ref.watch(transactionRepositoryProvider));
 });
 
 class TransactionsState {
@@ -131,32 +149,46 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     }
   }
 
+  /// Upsert transaction in-place without triggering full screen reload
+  void upsertTransaction(TransactionEntity transaction) {
+    final list = List<TransactionEntity>.from(state.transactions);
+    final index = list.indexWhere((tx) => tx.id == transaction.id);
+
+    if (index >= 0) {
+      list[index] = transaction;
+    } else {
+      list.insert(0, transaction);
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+
+    state = state.copyWith(transactions: list);
+  }
+
+  void removeTransaction(String id) {
+    final list = state.transactions.where((tx) => tx.id != id).toList();
+    state = state.copyWith(transactions: list);
+  }
+
   /// Optimistic Update with automatic Rollback on failure
   Future<bool> addTransaction(TransactionEntity transaction) async {
-    // 1. Save previous state for rollback
     final previousState = state;
 
-    // 2. Optimistic UI update: immediately prepend to transactions list
     final optimisticList = [transaction, ...state.transactions];
     state = state.copyWith(transactions: optimisticList, errorMessage: null);
 
     try {
-      // 3. Perform backend or local queue write
       final created = await createTransactionUseCase(transaction);
 
-      // Replace optimistic item with confirmed backend model
       final updatedList = state.transactions.map((tx) {
         return tx.id == transaction.id ? created : tx;
       }).toList();
 
       state = state.copyWith(transactions: updatedList);
 
-      // Refresh wallet balance list in UI asynchronously
       unawaited(ref.read(walletsNotifierProvider.notifier).loadWallets());
 
       return true;
     } catch (e) {
-      // 4. Rollback to previous state if failed
       state = previousState.copyWith(
         errorMessage: 'Error al registrar la transacción. Se realizó rollback.',
       );
@@ -192,4 +224,57 @@ final transactionsNotifierProvider =
     createTransactionUseCase: ref.watch(createTransactionUseCaseProvider),
     ref: ref,
   );
+});
+
+final realtimeGroupTransactionsProvider =
+    StreamProvider.family<RealtimeTransactionEvent, String>((ref, groupId) {
+  final subscribeUseCase =
+      ref.watch(subscribeGroupTransactionsUseCaseProvider);
+  final stream = subscribeUseCase(groupId);
+
+  stream.listen((event) {
+    // 1. Update TransactionsNotifier state incrementally without reloading
+    if (event.type == RealtimeEventType.delete) {
+      ref
+          .read(transactionsNotifierProvider.notifier)
+          .removeTransaction(event.transaction.id);
+    } else {
+      ref
+          .read(transactionsNotifierProvider.notifier)
+          .upsertTransaction(event.transaction);
+    }
+
+    // 2. Incrementally update DashboardNotifier if metrics loaded
+    final currentMetrics =
+        ref.read(dashboardNotifierProvider(groupId)).valueOrNull;
+    if (currentMetrics != null) {
+      final updatedTxs = List<TransactionEntity>.from(
+        ref.read(transactionsNotifierProvider).transactions,
+      );
+      final newMetrics = DashboardCalculator.buildMetrics(
+        group: currentMetrics.groupId != null
+            ? GroupEntity(
+                id: currentMetrics.groupId!,
+                name: currentMetrics.groupName ?? '',
+                inviteCode: '',
+                budgetTotal: currentMetrics.totalBudget,
+                startDate: currentMetrics.startDate ?? DateTime.now(),
+                endDate: currentMetrics.endDate ?? DateTime.now(),
+                weeksCount: currentMetrics.totalWeeks ?? 1,
+                createdBy: '',
+              )
+            : null,
+        transactions: updatedTxs,
+        threshold: currentMetrics.thresholdPercentage,
+      );
+      ref
+          .read(dashboardNotifierProvider(groupId).notifier)
+          .updateMetrics(newMetrics);
+    }
+
+    // 3. Keep wallets balance updated
+    unawaited(ref.read(walletsNotifierProvider.notifier).loadWallets());
+  });
+
+  return stream;
 });

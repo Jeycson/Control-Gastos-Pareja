@@ -1,3 +1,4 @@
+import '../entities/realtime_transaction_event.dart';
 import '../entities/transaction_entity.dart';
 
 abstract class TransactionRepository {
@@ -7,4 +8,5 @@ abstract class TransactionRepository {
   });
   Future<TransactionEntity> createTransaction(TransactionEntity transaction);
   Future<void> syncOfflineQueue();
+  Stream<RealtimeTransactionEvent> subscribeToGroupTransactions(String groupId);
 }
