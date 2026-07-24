@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/utils/formatters.dart';
 import '../providers/groups_provider.dart';
 
@@ -83,6 +84,13 @@ class _GroupSummaryScreenState extends ConsumerState<GroupSummaryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(summary?.group.name ?? 'Resumen del Grupo'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.handshake_outlined),
+            tooltip: 'Cuentas Claras',
+            onPressed: () => context.push('/settlements/${widget.groupId}'),
+          ),
+        ],
       ),
       body: state.isLoading && summary == null
           ? const Center(child: CircularProgressIndicator())
@@ -191,6 +199,16 @@ class _GroupSummaryScreenState extends ConsumerState<GroupSummaryScreen> {
                                       : 0.0,
                                   minHeight: 8,
                                   borderRadius: BorderRadius.circular(4),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: () =>
+                                      context.push('/settlements/${widget.groupId}'),
+                                  icon: const Icon(Icons.handshake),
+                                  label: const Text('Ver Cuentas Claras 🤝'),
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: const Size.fromHeight(44),
+                                  ),
                                 ),
                               ],
                             ),

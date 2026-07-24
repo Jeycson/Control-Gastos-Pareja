@@ -10,6 +10,7 @@ import '../../features/groups/presentation/screens/create_group_screen.dart';
 import '../../features/groups/presentation/screens/group_summary_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/settlements/presentation/screens/settlements_screen.dart';
 import '../../features/transactions/presentation/screens/add_transaction_screen.dart';
 import '../../features/transactions/presentation/screens/transactions_list_screen.dart';
 import '../../features/wallets/presentation/screens/wallets_screen.dart';
@@ -86,6 +87,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return GroupSummaryScreen(groupId: id);
+        },
+      ),
+      GoRoute(
+        path: '/settlements/:id',
+        name: 'settlements',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return SettlementsScreen(groupId: id);
         },
       ),
       GoRoute(
