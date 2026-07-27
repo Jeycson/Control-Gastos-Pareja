@@ -1,94 +1,71 @@
+import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/utils/uuid_generator.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
   Future<UserModel?> getCurrentUser();
-  Future<UserModel> signInWithEmailAndPassword({
-    required String email,
-    required String password,
-  });
-  Future<UserModel> signUpWithEmailAndPassword({
-    required String email,
-    required String password,
-    required String fullName,
-  });
-  Future<void> sendPasswordResetEmail({
-    required String email,
-  });
+  Future<UserModel> identifyUser({required String fullName});
   Future<void> signOut();
   Stream<UserModel?> get authStateChanges;
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final SupabaseClient supabaseClient;
+  final SharedPreferences sharedPreferences;
+  final StreamController<UserModel?> _authStateController = StreamController<UserModel?>.broadcast();
 
-  AuthRemoteDataSourceImpl(this.supabaseClient);
+  static const String _userIdKey = 'current_user_id';
+  static const String _userNameKey = 'current_user_name';
+
+  AuthRemoteDataSourceImpl({
+    required this.supabaseClient,
+    required this.sharedPreferences,
+  });
 
   @override
   Future<UserModel?> getCurrentUser() async {
-    final user = supabaseClient.auth.currentUser;
-    if (user == null) return null;
-    return UserModel.fromSupabaseUser(user);
+    final userId = sharedPreferences.getString(_userIdKey);
+    final userName = sharedPreferences.getString(_userNameKey);
+
+    if (userId != null && userId.isNotEmpty && userName != null && userName.isNotEmpty) {
+      return UserModel(id: userId, fullName: userName);
+    }
+    return null;
   }
 
   @override
-  Future<UserModel> signInWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
-    final response = await supabaseClient.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-
-    final user = response.user;
-    if (user == null) {
-      throw const AuthException('No se pudo iniciar sesión.');
+  Future<UserModel> identifyUser({required String fullName}) async {
+    String? userId = sharedPreferences.getString(_userIdKey);
+    if (userId == null || userId.isEmpty) {
+      userId = UuidGenerator.generateV4();
     }
 
-    return UserModel.fromSupabaseUser(user);
-  }
-
-  @override
-  Future<UserModel> signUpWithEmailAndPassword({
-    required String email,
-    required String password,
-    required String fullName,
-  }) async {
-    final response = await supabaseClient.auth.signUp(
-      email: email,
-      password: password,
-      data: {
+    try {
+      await supabaseClient.from('profiles').upsert({
+        'id': userId,
         'full_name': fullName,
-      },
-    );
-
-    final user = response.user;
-    if (user == null) {
-      throw const AuthException('No se pudo completar el registro.');
+      });
+    } catch (_) {
+      // In case offline, offline/local storage still works
     }
 
-    return UserModel.fromSupabaseUser(user);
-  }
+    await sharedPreferences.setString(_userIdKey, userId);
+    await sharedPreferences.setString(_userNameKey, fullName);
 
-  @override
-  Future<void> sendPasswordResetEmail({
-    required String email,
-  }) async {
-    await supabaseClient.auth.resetPasswordForEmail(email);
+    final user = UserModel(id: userId, fullName: fullName);
+    _authStateController.add(user);
+    return user;
   }
 
   @override
   Future<void> signOut() async {
-    await supabaseClient.auth.signOut();
+    await sharedPreferences.remove(_userIdKey);
+    await sharedPreferences.remove(_userNameKey);
+    _authStateController.add(null);
   }
 
   @override
-  Stream<UserModel?> get authStateChanges {
-    return supabaseClient.auth.onAuthStateChange.map((data) {
-      final user = data.session?.user ?? supabaseClient.auth.currentUser;
-      if (user == null) return null;
-      return UserModel.fromSupabaseUser(user);
-    });
-  }
+  Stream<UserModel?> get authStateChanges => _authStateController.stream;
 }

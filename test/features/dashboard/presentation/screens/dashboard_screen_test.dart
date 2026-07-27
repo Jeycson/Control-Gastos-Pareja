@@ -1,8 +1,6 @@
 import 'package:finanzas_compartidas/features/auth/domain/entities/user_entity.dart';
 import 'package:finanzas_compartidas/features/auth/domain/repositories/auth_repository.dart';
-import 'package:finanzas_compartidas/features/auth/domain/usecases/login_usecase.dart';
-import 'package:finanzas_compartidas/features/auth/domain/usecases/register_usecase.dart';
-import 'package:finanzas_compartidas/features/auth/domain/usecases/reset_password_usecase.dart';
+import 'package:finanzas_compartidas/features/auth/domain/usecases/identify_user_usecase.dart';
 import 'package:finanzas_compartidas/features/auth/domain/usecases/sign_out_usecase.dart';
 import 'package:finanzas_compartidas/features/auth/presentation/providers/auth_provider.dart';
 import 'package:finanzas_compartidas/features/auth/presentation/providers/auth_state.dart';
@@ -29,9 +27,7 @@ class MockAuthRepository extends Mock implements AuthRepository {}
 class MockGroupRepository extends Mock implements GroupRepository {}
 class MockTransactionRepository extends Mock implements TransactionRepository {}
 
-class MockLoginUseCase extends Mock implements LoginUseCase {}
-class MockRegisterUseCase extends Mock implements RegisterUseCase {}
-class MockResetPasswordUseCase extends Mock implements ResetPasswordUseCase {}
+class MockIdentifyUserUseCase extends Mock implements IdentifyUserUseCase {}
 class MockSignOutUseCase extends Mock implements SignOutUseCase {}
 
 class MockGetUserGroupsUseCase extends Mock implements GetUserGroupsUseCase {}
@@ -46,9 +42,7 @@ class MockGetDashboardDataUseCase extends Mock
 class TestAuthNotifier extends AuthNotifier {
   TestAuthNotifier(UserEntity user, AuthRepository repo)
       : super(
-          loginUseCase: MockLoginUseCase(),
-          registerUseCase: MockRegisterUseCase(),
-          resetPasswordUseCase: MockResetPasswordUseCase(),
+          identifyUserUseCase: MockIdentifyUserUseCase(),
           signOutUseCase: MockSignOutUseCase(),
           authRepository: repo,
         ) {

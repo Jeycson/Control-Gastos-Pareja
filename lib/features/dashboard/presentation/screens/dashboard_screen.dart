@@ -338,8 +338,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           icon: const Icon(Icons.flash_on),
                           label: const Text('Nuevo Gasto ⚡'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                theme.colorScheme.primaryContainer,
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 12,

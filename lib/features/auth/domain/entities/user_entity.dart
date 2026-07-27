@@ -6,7 +6,7 @@ class UserEntity {
 
   const UserEntity({
     required this.id,
-    required this.email,
+    this.email = '',
     required this.fullName,
     this.avatarUrl,
   });

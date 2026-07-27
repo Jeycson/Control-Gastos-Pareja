@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/auth_state.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import '../../../transactions/presentation/providers/transactions_provider.dart';
@@ -31,9 +32,17 @@ class DashboardNotifier
   }
 
   Future<void> loadDashboard({bool isRefresh = false}) async {
-    final user = ref.read(authNotifierProvider).user;
+    var authState = ref.read(authNotifierProvider);
+    if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
+      await ref.read(authNotifierProvider.notifier).stream.firstWhere(
+        (s) => s.status != AuthStatus.initial && s.status != AuthStatus.loading,
+      );
+      authState = ref.read(authNotifierProvider);
+    }
+
+    final user = authState.user;
     if (user == null) {
-      state = const AsyncValue.error('Usuario no autenticado', StackTrace.empty);
+      state = const AsyncValue.error('Usuario no identificado. Ingresa tu nombre para continuar.', StackTrace.empty);
       return;
     }
 

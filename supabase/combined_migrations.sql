@@ -1,7 +1,16 @@
 -- ==========================================
--- FINANZAS COMPARTIDAS - MIGRACIÓN COMPLETA
+-- FINANZAS COMPARTIDAS - MIGRACIÓN COMPLETA (MODO PERSONAL / SIN SUPABASE AUTH)
 -- Ejecutar este script en el Editor SQL de Supabase (https://supabase.com/dashboard/project/_/sql)
 -- ==========================================
+
+-- 0. LIMPIEZA DE TABLAS PREVIAS (RESETEO DE DATOS)
+DROP TABLE IF EXISTS public.settlements CASCADE;
+DROP TABLE IF EXISTS public.budget_weeks CASCADE;
+DROP TABLE IF EXISTS public.transactions CASCADE;
+DROP TABLE IF EXISTS public.wallets CASCADE;
+DROP TABLE IF EXISTS public.group_members CASCADE;
+DROP TABLE IF EXISTS public.groups CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
 
 -- 1. ENUMS Y TIPOS PERSONALIZADOS
 DO $$ BEGIN
@@ -22,40 +31,16 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 2. TABLA PROFILES Y TRIGGER DE REGISTRO
-CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+-- 2. TABLA PROFILES
+CREATE TABLE public.profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     full_name TEXT NOT NULL DEFAULT '',
     avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-    INSERT INTO public.profiles (id, full_name, avatar_url)
-    VALUES (
-        NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-        COALESCE(NEW.raw_user_meta_data->>'avatar_url', '')
-    )
-    ON CONFLICT (id) DO NOTHING;
-    RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
 -- 3. TABLAS GROUPS Y GROUP_MEMBERS Y HELPER FUNCTION
-CREATE TABLE IF NOT EXISTS public.groups (
+CREATE TABLE public.groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     invite_code TEXT UNIQUE NOT NULL DEFAULT UPPER(substring(md5(random()::text) from 1 for 6)),
@@ -67,7 +52,7 @@ CREATE TABLE IF NOT EXISTS public.groups (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.group_members (
+CREATE TABLE public.group_members (
     group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     role public.group_role NOT NULL DEFAULT 'member',
@@ -88,11 +73,8 @@ AS $$
     );
 $$;
 
-ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
-
 -- 4. TABLA WALLETS
-CREATE TABLE IF NOT EXISTS public.wallets (
+CREATE TABLE public.wallets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     group_id UUID REFERENCES public.groups(id) ON DELETE SET NULL,
@@ -103,10 +85,8 @@ CREATE TABLE IF NOT EXISTS public.wallets (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
-
 -- 5. TABLA TRANSACTIONS
-CREATE TABLE IF NOT EXISTS public.transactions (
+CREATE TABLE public.transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_id UUID NOT NULL REFERENCES public.wallets(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -119,10 +99,8 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-
 -- 6. TABLA BUDGET_WEEKS
-CREATE TABLE IF NOT EXISTS public.budget_weeks (
+CREATE TABLE public.budget_weeks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
     week_number INT NOT NULL CHECK (week_number > 0),
@@ -135,10 +113,8 @@ CREATE TABLE IF NOT EXISTS public.budget_weeks (
     UNIQUE (group_id, week_number)
 );
 
-ALTER TABLE public.budget_weeks ENABLE ROW LEVEL SECURITY;
-
 -- 7. TABLA SETTLEMENTS
-CREATE TABLE IF NOT EXISTS public.settlements (
+CREATE TABLE public.settlements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id UUID NOT NULL REFERENCES public.groups(id) ON DELETE CASCADE,
     from_user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -150,92 +126,14 @@ CREATE TABLE IF NOT EXISTS public.settlements (
     CONSTRAINT chk_different_users CHECK (from_user_id <> to_user_id)
 );
 
-ALTER TABLE public.settlements ENABLE ROW LEVEL SECURITY;
-
--- 8. POLÍTICAS RLS (PROFILES, GROUPS, GROUP_MEMBERS, WALLETS, TRANSACTIONS, BUDGET_WEEKS, SETTLEMENTS)
-DROP POLICY IF EXISTS "Users can view their own profile or profiles of group members" ON public.profiles;
-CREATE POLICY "Users can view their own profile or profiles of group members" ON public.profiles FOR SELECT USING (id = auth.uid() OR EXISTS (SELECT 1 FROM public.group_members gm1 JOIN public.group_members gm2 ON gm1.group_id = gm2.group_id WHERE gm1.user_id = auth.uid() AND gm2.user_id = public.profiles.id));
-
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
-CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
-
-DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
-CREATE POLICY "Users can insert their own profile" ON public.profiles FOR INSERT WITH CHECK (id = auth.uid());
-
-DROP POLICY IF EXISTS "Group members can view their groups" ON public.groups;
-CREATE POLICY "Group members can view their groups" ON public.groups FOR SELECT USING (public.is_group_member(id, auth.uid()));
-
-DROP POLICY IF EXISTS "Authenticated users can lookup groups by invite_code" ON public.groups;
-CREATE POLICY "Authenticated users can lookup groups by invite_code" ON public.groups FOR SELECT USING (auth.uid() IS NOT NULL);
-
-DROP POLICY IF EXISTS "Authenticated users can create a group" ON public.groups;
-CREATE POLICY "Authenticated users can create a group" ON public.groups FOR INSERT WITH CHECK (created_by = auth.uid());
-
-DROP POLICY IF EXISTS "Group members can update their groups" ON public.groups;
-CREATE POLICY "Group members can update their groups" ON public.groups FOR UPDATE USING (public.is_group_member(id, auth.uid())) WITH CHECK (public.is_group_member(id, auth.uid()));
-
-DROP POLICY IF EXISTS "Group creators or admins can delete their groups" ON public.groups;
-CREATE POLICY "Group creators or admins can delete their groups" ON public.groups FOR DELETE USING (created_by = auth.uid() OR public.is_group_member(id, auth.uid()));
-
-DROP POLICY IF EXISTS "Group members can view members of their groups" ON public.group_members;
-CREATE POLICY "Group members can view members of their groups" ON public.group_members FOR SELECT USING (public.is_group_member(group_id, auth.uid()) OR user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Group members or group creator can invite/add members" ON public.group_members;
-CREATE POLICY "Group members or group creator can invite/add members" ON public.group_members FOR INSERT WITH CHECK (public.is_group_member(group_id, auth.uid()) OR user_id = auth.uid() OR EXISTS (SELECT 1 FROM public.groups g WHERE g.id = group_id AND g.created_by = auth.uid()));
-
-DROP POLICY IF EXISTS "Group members can update group member records" ON public.group_members;
-CREATE POLICY "Group members can update group member records" ON public.group_members FOR UPDATE USING (public.is_group_member(group_id, auth.uid())) WITH CHECK (public.is_group_member(group_id, auth.uid()));
-
-DROP POLICY IF EXISTS "Members can leave or admins can remove group members" ON public.group_members;
-CREATE POLICY "Members can leave or admins can remove group members" ON public.group_members FOR DELETE USING (user_id = auth.uid() OR public.is_group_member(group_id, auth.uid()));
-
-DROP POLICY IF EXISTS "Users can view own wallets or shared group wallets" ON public.wallets;
-CREATE POLICY "Users can view own wallets or shared group wallets" ON public.wallets FOR SELECT USING (user_id = auth.uid() OR (group_id IS NOT NULL AND public.is_group_member(group_id, auth.uid())));
-
-DROP POLICY IF EXISTS "Users can insert their own wallets" ON public.wallets;
-CREATE POLICY "Users can insert their own wallets" ON public.wallets FOR INSERT WITH CHECK (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Users can update their own wallets or group members if shared" ON public.wallets;
-CREATE POLICY "Users can update their own wallets or group members if shared" ON public.wallets FOR UPDATE USING (user_id = auth.uid() OR (group_id IS NOT NULL AND public.is_group_member(group_id, auth.uid()))) WITH CHECK (user_id = auth.uid() OR (group_id IS NOT NULL AND public.is_group_member(group_id, auth.uid())));
-
-DROP POLICY IF EXISTS "Users can delete their own wallets" ON public.wallets;
-CREATE POLICY "Users can delete their own wallets" ON public.wallets FOR DELETE USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Users can view own transactions or group transactions" ON public.transactions;
-CREATE POLICY "Users can view own transactions or group transactions" ON public.transactions FOR SELECT USING (user_id = auth.uid() OR (group_id IS NOT NULL AND public.is_group_member(group_id, auth.uid())));
-
-DROP POLICY IF EXISTS "Users can insert their own transactions" ON public.transactions;
-CREATE POLICY "Users can insert their own transactions" ON public.transactions FOR INSERT WITH CHECK (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Users can update own transactions or group transactions" ON public.transactions;
-CREATE POLICY "Users can update own transactions or group transactions" ON public.transactions FOR UPDATE USING (user_id = auth.uid() OR (group_id IS NOT NULL AND public.is_group_member(group_id, auth.uid()))) WITH CHECK (user_id = auth.uid() OR (group_id IS NOT NULL AND public.is_group_member(group_id, auth.uid())));
-
-DROP POLICY IF EXISTS "Users can delete their own transactions" ON public.transactions;
-CREATE POLICY "Users can delete their own transactions" ON public.transactions FOR DELETE USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Group members can view budget weeks" ON public.budget_weeks;
-CREATE POLICY "Group members can view budget weeks" ON public.budget_weeks FOR SELECT USING (public.is_group_member(group_id, auth.uid()));
-
-DROP POLICY IF EXISTS "Group members can insert budget weeks" ON public.budget_weeks;
-CREATE POLICY "Group members can insert budget weeks" ON public.budget_weeks FOR INSERT WITH CHECK (public.is_group_member(group_id, auth.uid()));
-
-DROP POLICY IF EXISTS "Group members can update budget weeks" ON public.budget_weeks;
-CREATE POLICY "Group members can update budget weeks" ON public.budget_weeks FOR UPDATE USING (public.is_group_member(group_id, auth.uid())) WITH CHECK (public.is_group_member(group_id, auth.uid()));
-
-DROP POLICY IF EXISTS "Group members can delete budget weeks" ON public.budget_weeks;
-CREATE POLICY "Group members can delete budget weeks" ON public.budget_weeks FOR DELETE USING (public.is_group_member(group_id, auth.uid()));
-
-DROP POLICY IF EXISTS "Group members or involved users can view settlements" ON public.settlements;
-CREATE POLICY "Group members or involved users can view settlements" ON public.settlements FOR SELECT USING (public.is_group_member(group_id, auth.uid()) OR from_user_id = auth.uid() OR to_user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Group members or payer can create settlements" ON public.settlements;
-CREATE POLICY "Group members or payer can create settlements" ON public.settlements FOR INSERT WITH CHECK (public.is_group_member(group_id, auth.uid()) OR from_user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Involved users or group members can update settlements" ON public.settlements;
-CREATE POLICY "Involved users or group members can update settlements" ON public.settlements FOR UPDATE USING (public.is_group_member(group_id, auth.uid()) OR from_user_id = auth.uid() OR to_user_id = auth.uid()) WITH CHECK (public.is_group_member(group_id, auth.uid()) OR from_user_id = auth.uid() OR to_user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Payer or group members can delete pending settlements" ON public.settlements;
-CREATE POLICY "Payer or group members can delete pending settlements" ON public.settlements FOR DELETE USING (from_user_id = auth.uid() OR public.is_group_member(group_id, auth.uid()));
+-- 8. DESACTIVAR RLS PARA MODO PERSONAL DE USO DIRECTO
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.groups DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.group_members DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wallets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transactions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.budget_weeks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settlements DISABLE ROW LEVEL SECURITY;
 
 -- 9. FUNCIÓN RPC ATÓMICA DE REGISTRO DE TRANSACCIONES
 CREATE OR REPLACE FUNCTION public.register_transaction_atomic(

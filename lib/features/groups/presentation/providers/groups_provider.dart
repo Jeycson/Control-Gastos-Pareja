@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/supabase_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/auth_state.dart';
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/repositories/group_repository_impl.dart';
 import '../../domain/entities/group_entity.dart';
@@ -90,7 +91,14 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
   }) : super(GroupsState.initial());
 
   Future<void> loadUserGroups() async {
-    final authState = ref.read(authNotifierProvider);
+    var authState = ref.read(authNotifierProvider);
+    if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
+      await ref.read(authNotifierProvider.notifier).stream.firstWhere(
+        (s) => s.status != AuthStatus.initial && s.status != AuthStatus.loading,
+      );
+      authState = ref.read(authNotifierProvider);
+    }
+
     final user = authState.user;
     if (user == null) return;
 

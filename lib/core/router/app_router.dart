@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/providers/auth_state.dart';
-import '../../features/auth/presentation/screens/forgot_password_screen.dart';
-import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/identification_screen.dart';
 import '../../features/groups/presentation/screens/create_group_screen.dart';
 import '../../features/groups/presentation/screens/group_summary_screen.dart';
 import '../../features/groups/presentation/screens/groups_list_screen.dart';
@@ -28,9 +26,7 @@ class RouterNotifier extends ChangeNotifier {
   String? redirect(BuildContext context, GoRouterState state) {
     final authState = _ref.read(authNotifierProvider);
     final isAuth = authState.status == AuthStatus.authenticated;
-    final isAuthRoute = state.matchedLocation == '/login' ||
-        state.matchedLocation == '/register' ||
-        state.matchedLocation == '/forgot-password';
+    final isAuthRoute = state.matchedLocation == '/identification';
 
     if (authState.status == AuthStatus.initial ||
         authState.status == AuthStatus.loading) {
@@ -38,7 +34,7 @@ class RouterNotifier extends ChangeNotifier {
     }
 
     if (!isAuth && !isAuthRoute) {
-      return '/login';
+      return '/identification';
     }
 
     if (isAuth && isAuthRoute) {
@@ -108,19 +104,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AddTransactionScreen(),
       ),
       GoRoute(
-        path: '/login',
-        name: 'login',
-        builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/register',
-        name: 'register',
-        builder: (context, state) => const RegisterScreen(),
-      ),
-      GoRoute(
-        path: '/forgot-password',
-        name: 'forgot-password',
-        builder: (context, state) => const ForgotPasswordScreen(),
+        path: '/identification',
+        name: 'identification',
+        builder: (context, state) => const NameIdentificationScreen(),
       ),
     ],
   );

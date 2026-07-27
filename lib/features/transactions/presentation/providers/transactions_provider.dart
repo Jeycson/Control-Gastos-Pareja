@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/network/supabase_client.dart';
+import '../../../../core/providers/shared_preferences_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../dashboard/domain/services/dashboard_calculator.dart';
 import '../../../dashboard/presentation/providers/dashboard_provider.dart';
@@ -18,10 +18,6 @@ import '../../domain/repositories/transaction_repository.dart';
 import '../../domain/usecases/create_transaction_usecase.dart';
 import '../../domain/usecases/get_transactions_usecase.dart';
 import '../../domain/usecases/subscribe_group_transactions_usecase.dart';
-
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('Initialize SharedPreferences in main.dart');
-});
 
 final connectivityProvider = Provider<Connectivity>((ref) {
   return Connectivity();

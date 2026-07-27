@@ -6,6 +6,9 @@ class ServerException implements Exception {
     required this.message,
     this.statusCode,
   });
+
+  @override
+  String toString() => message;
 }
 
 class CacheException implements Exception {
@@ -14,6 +17,9 @@ class CacheException implements Exception {
   const CacheException({
     required this.message,
   });
+
+  @override
+  String toString() => message;
 }
 
 class NetworkException implements Exception {
@@ -22,4 +28,7 @@ class NetworkException implements Exception {
   const NetworkException({
     required this.message,
   });
+
+  @override
+  String toString() => message;
 }
