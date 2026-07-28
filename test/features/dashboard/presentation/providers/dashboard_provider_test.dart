@@ -16,8 +16,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:finanzas_compartidas/core/providers/shared_preferences_provider.dart';
+import 'package:finanzas_compartidas/features/wallets/domain/repositories/wallet_repository.dart';
+import 'package:finanzas_compartidas/features/wallets/presentation/providers/wallets_provider.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 class MockGroupRepository extends Mock implements GroupRepository {}
 class MockTransactionRepository extends Mock implements TransactionRepository {}
+class MockWalletRepository extends Mock implements WalletRepository {}
 class MockAuthRepository extends Mock implements AuthRepository {}
 class MockIdentifyUserUseCase extends Mock implements IdentifyUserUseCase {}
 class MockSignOutUseCase extends Mock implements SignOutUseCase {}
@@ -34,8 +41,13 @@ class SynchronousAuthNotifier extends AuthNotifier {
 }
 
 void main() {
+  setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   late MockGroupRepository mockGroupRepo;
   late MockTransactionRepository mockTxRepo;
+  late MockWalletRepository mockWalletRepo;
   late MockAuthRepository mockAuthRepo;
 
   const tUser = UserEntity(id: 'u1', email: 'test@example.com', fullName: 'Test User');
@@ -89,23 +101,32 @@ void main() {
     createdAt: DateTime(2026, 7, 3),
   );
 
-  setUp(() {
+  late SharedPreferences prefs;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+
     mockGroupRepo = MockGroupRepository();
     mockTxRepo = MockTransactionRepository();
+    mockWalletRepo = MockWalletRepository();
     mockAuthRepo = MockAuthRepository();
 
     when(() => mockAuthRepo.getCurrentUser()).thenAnswer((_) async => tUser);
     when(() => mockAuthRepo.authStateChanges).thenAnswer((_) => Stream.value(tUser));
+    when(() => mockWalletRepo.getWallets(any())).thenAnswer((_) async => []);
   });
 
   ProviderContainer createContainer() {
     return ProviderContainer(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         authNotifierProvider.overrideWith(
           (ref) => SynchronousAuthNotifier(tUser, mockAuthRepo),
         ),
         groupRepositoryProvider.overrideWithValue(mockGroupRepo),
         transactionRepositoryProvider.overrideWithValue(mockTxRepo),
+        walletRepositoryProvider.overrideWithValue(mockWalletRepo),
       ],
     );
   }

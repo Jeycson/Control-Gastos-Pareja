@@ -26,6 +26,7 @@ class _AddTransactionScreenState
   String _selectedCategory = 'Comida';
   bool _isShared = false;
   bool _isExtraordinary = false;
+  bool _isFullPayment = false;
   WalletEntity? _selectedWallet;
   String? _selectedGroupId;
 
@@ -107,6 +108,7 @@ class _AddTransactionScreenState
       category: _selectedCategory,
       isShared: _isShared,
       isExtraordinary: _isExtraordinary,
+      isFullPayment: _isShared && _isFullPayment,
       description: _descriptionController.text.trim(),
       createdAt: DateTime.now(),
       userName: user.fullName.isNotEmpty ? user.fullName : user.email,
@@ -122,6 +124,15 @@ class _AddTransactionScreenState
         const SnackBar(content: Text('Transacción registrada al instante! ⚡')),
       );
       router.pop();
+    } else {
+      final errorMsg = ref.read(transactionsNotifierProvider).errorMessage ??
+          'Ocurrió un error al registrar la transacción.';
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(errorMsg.replaceAll('Exception: ', '').replaceAll('ServerException: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -134,33 +145,132 @@ class _AddTransactionScreenState
       appBar: AppBar(
         title: const Text('Registro Rápido de Gasto ⚡'),
       ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton(
+            onPressed: _submit,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              'Guardar Transacción Instantánea',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Display de Monto Grande
+              // Visor e Ingreso Directo de Monto (Edición táctil + teclado del sistema)
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Column(
                   children: [
                     Text(
                       'Monto del Gasto',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
                       '\$ ${_amountController.text.isEmpty ? '0' : _amountController.text}',
-                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.primary,
                           ),
                     ),
+                    SizedBox(
+                      height: 1,
+                      child: TextField(
+                        controller: _amountController,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(color: Colors.transparent, fontSize: 1),
+                        decoration: const InputDecoration(border: InputBorder.none),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Teclado numérico táctil instantáneo (Justo debajo del visor de monto)
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  children: [
+                    for (var row in [
+                      ['1', '2', '3'],
+                      ['4', '5', '6'],
+                      ['7', '8', '9'],
+                      ['.', '0', 'DEL'],
+                    ])
+                      Row(
+                        children: row.map((key) {
+                          return Expanded(
+                            child: InkWell(
+                              onTap: () => _onKeypadTap(key),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Semantics(
+                                button: true,
+                                label: key == 'DEL'
+                                    ? 'Borrar dígito'
+                                    : (key == '.'
+                                        ? 'Punto decimal'
+                                        : 'Dígito $key'),
+                                child: Container(
+                                  height: 46,
+                                  alignment: Alignment.center,
+                                  child: key == 'DEL'
+                                      ? const Icon(
+                                          Icons.backspace_outlined,
+                                          size: 20,
+                                          semanticLabel: 'Borrar dígito',
+                                        )
+                                      : Text(
+                                          key,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                   ],
                 ),
               ),
@@ -236,12 +346,14 @@ class _AddTransactionScreenState
               // Toggles: ¿Es Compartido? y Extraordinario
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 4),
                   child: Column(
                     children: [
                       SwitchListTile(
                         title: const Text('¿Es gasto compartido?'),
-                        subtitle: const Text('Se incluirá en el presupuesto del grupo'),
+                        subtitle:
+                            const Text('Se incluirá en el presupuesto del grupo'),
                         value: _isShared,
                         onChanged: (val) {
                           setState(() {
@@ -275,6 +387,19 @@ class _AddTransactionScreenState
                             },
                           ),
                         ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          title: const Text('¿Pagaste el 100% del gasto?'),
+                          subtitle: const Text(
+                            'Se descontará el 100% de tu billetera y se generará una solicitud de cobro a los otros miembros',
+                          ),
+                          value: _isFullPayment,
+                          onChanged: (val) {
+                            setState(() {
+                              _isFullPayment = val;
+                            });
+                          },
+                        ),
                       ],
                       const Divider(height: 1),
                       SwitchListTile(
@@ -302,73 +427,7 @@ class _AddTransactionScreenState
                   prefixIcon: Icon(Icons.edit_note),
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // Teclado numérico táctil rápido
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Column(
-                  children: [
-                    for (var row in [
-                      ['1', '2', '3'],
-                      ['4', '5', '6'],
-                      ['7', '8', '9'],
-                      ['.', '0', 'DEL'],
-                    ])
-                      Row(
-                        children: row.map((key) {
-                          return Expanded(
-                            child: InkWell(
-                              onTap: () => _onKeypadTap(key),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Semantics(
-                                button: true,
-                                label: key == 'DEL'
-                                    ? 'Borrar dígito'
-                                    : (key == '.' ? 'Punto decimal' : 'Dígito $key'),
-                                child: Container(
-                                  height: 52,
-                                  alignment: Alignment.center,
-                                  child: key == 'DEL'
-                                      ? const Icon(
-                                          Icons.backspace_outlined,
-                                          semanticLabel: 'Borrar dígito',
-                                        )
-                                      : Text(
-                                          key,
-                                          style: const TextStyle(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 24),
-
-              // Botón Guardar
-              ElevatedButton(
-                onPressed: _submit,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                ),
-                child: const Text(
-                  'Guardar Transacción Instantánea',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
             ],
           ),
         ),

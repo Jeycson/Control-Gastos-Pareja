@@ -9,11 +9,15 @@ import '../../domain/entities/category_expense_entity.dart';
 import '../../domain/entities/dashboard_metrics_entity.dart';
 import '../../domain/usecases/get_dashboard_data_usecase.dart';
 
+import '../../../wallets/presentation/providers/wallets_provider.dart';
+import 'user_budget_period_provider.dart';
+
 final getDashboardDataUseCaseProvider =
     Provider<GetDashboardDataUseCase>((ref) {
   return GetDashboardDataUseCase(
     groupRepository: ref.watch(groupRepositoryProvider),
     transactionRepository: ref.watch(transactionRepositoryProvider),
+    walletRepository: ref.watch(walletRepositoryProvider),
   );
 });
 
@@ -55,8 +59,15 @@ class DashboardNotifier
     }
 
     try {
+      final userPeriod = ref.read(userBudgetPeriodProvider);
       final metrics = await getDashboardDataUseCase(
-        GetDashboardDataParams(groupId: groupId, userId: user.id),
+        GetDashboardDataParams(
+          groupId: groupId,
+          userId: user.id,
+          customStartDate: userPeriod.startDate,
+          customEndDate: userPeriod.endDate,
+          customWeeksCount: userPeriod.weeksCount,
+        ),
       );
       state = AsyncValue.data(metrics);
     } catch (e, st) {

@@ -10,8 +10,13 @@ import '../../domain/usecases/delete_wallet_usecase.dart';
 import '../../domain/usecases/get_wallets_usecase.dart';
 import '../../domain/usecases/update_balance_usecase.dart';
 
+import '../../../../core/providers/shared_preferences_provider.dart';
+
 final walletRemoteDataSourceProvider = Provider<WalletRemoteDataSource>((ref) {
-  return WalletRemoteDataSourceImpl(ref.watch(supabaseClientProvider));
+  return WalletRemoteDataSourceImpl(
+    ref.watch(supabaseClientProvider),
+    ref.watch(sharedPreferencesProvider),
+  );
 });
 
 final walletRepositoryProvider = Provider<WalletRepository>((ref) {

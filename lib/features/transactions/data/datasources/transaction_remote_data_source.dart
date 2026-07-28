@@ -88,27 +88,56 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
           .eq('id', transaction.walletId);
     }
 
-    // 3. If is_shared == true and groupId is present, increment spent_amount in budget_week
+    // 3. If is_shared == true, isFullPayment == true and groupId is present, generate pending settlements for other members
     if (transaction.isShared && transaction.groupId != null) {
-      final dateStr = transaction.createdAt.toIso8601String().split('T').first;
+      if (transaction.isFullPayment) {
+        final membersResp = await supabaseClient
+            .from('group_members')
+            .select('user_id')
+            .eq('group_id', transaction.groupId!);
 
-      final weekResp = await supabaseClient
-          .from('budget_weeks')
-          .select('id, spent_amount')
-          .eq('group_id', transaction.groupId!)
-          .lte('start_date', dateStr)
-          .gte('end_date', dateStr)
-          .maybeSingle();
+        final members = membersResp as List<dynamic>;
+        if (members.length > 1) {
+          final share = transaction.amount / members.length;
+          final settlementsPayload = <Map<String, dynamic>>[];
+          for (final m in members) {
+            final uid = m['user_id'] as String;
+            if (uid != transaction.userId) {
+              settlementsPayload.add({
+                'group_id': transaction.groupId,
+                'from_user_id': uid,
+                'to_user_id': transaction.userId,
+                'amount': share,
+                'status': 'pending',
+              });
+            }
+          }
+          if (settlementsPayload.isNotEmpty) {
+            await supabaseClient.from('settlements').insert(settlementsPayload);
+          }
+        }
+      } else {
+        // Shared expense divided automatically across budget weeks
+        final dateStr = transaction.createdAt.toIso8601String().split('T').first;
 
-      if (weekResp != null) {
-        final weekId = weekResp['id'] as String;
-        final currentSpent = (weekResp['spent_amount'] as num).toDouble();
-        final newSpent = currentSpent + transaction.amount;
-
-        await supabaseClient
+        final weekResp = await supabaseClient
             .from('budget_weeks')
-            .update({'spent_amount': newSpent})
-            .eq('id', weekId);
+            .select('id, spent_amount')
+            .eq('group_id', transaction.groupId!)
+            .lte('start_date', dateStr)
+            .gte('end_date', dateStr)
+            .maybeSingle();
+
+        if (weekResp != null) {
+          final weekId = weekResp['id'] as String;
+          final currentSpent = (weekResp['spent_amount'] as num).toDouble();
+          final newSpent = currentSpent + transaction.amount;
+
+          await supabaseClient
+              .from('budget_weeks')
+              .update({'spent_amount': newSpent})
+              .eq('id', weekId);
+        }
       }
     }
 

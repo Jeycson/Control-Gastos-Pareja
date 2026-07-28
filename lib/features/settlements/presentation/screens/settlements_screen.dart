@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/formatters.dart';
+import '../../../wallets/domain/entities/wallet_entity.dart';
+import '../../../wallets/presentation/providers/wallets_provider.dart';
+import '../../domain/entities/settlement_payment.dart';
 import '../providers/settlements_provider.dart';
 
 class SettlementsScreen extends ConsumerStatefulWidget {
@@ -21,10 +24,93 @@ class _SettlementsScreenState extends ConsumerState<SettlementsScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
+      try {
+        ref.read(walletsNotifierProvider.notifier).loadWallets();
+      } catch (_) {}
       ref
           .read(settlementsNotifierProvider.notifier)
           .loadSettlements(widget.groupId);
     });
+  }
+
+  void _confirmPaySettlement(SettlementPayment payment) {
+    final wallets = ref.read(walletsNotifierProvider).wallets;
+    WalletEntity? selectedWallet = wallets.isNotEmpty ? wallets.first : null;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Confirmar Transferencia 🤝'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Vas a transferir ${Formatters.formatCurrency(payment.amount)} a favor de ${payment.toUserName}.',
+              ),
+              const SizedBox(height: 16),
+              if (wallets.isNotEmpty) ...[
+                const Text(
+                  'Selecciona la billetera de origen:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                DropdownButton<WalletEntity>(
+                  isExpanded: true,
+                  value: selectedWallet,
+                  items: wallets.map((w) {
+                    return DropdownMenuItem(
+                      value: w,
+                      child: Text('${w.name} (${Formatters.formatCurrency(w.balance)})'),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      selectedWallet = val;
+                    });
+                  },
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                final messenger = ScaffoldMessenger.of(context);
+                final success = await ref
+                    .read(settlementsNotifierProvider.notifier)
+                    .markAsPaid(
+                      groupId: widget.groupId,
+                      payment: payment,
+                    );
+                if (selectedWallet != null && success) {
+                  await ref.read(walletsNotifierProvider.notifier).updateBalance(
+                        walletId: selectedWallet!.id,
+                        newBalance: selectedWallet!.balance - payment.amount,
+                      );
+                }
+                if (success) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Transferencia realizada. ¡Cuentas actualizadas! 🤝',
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Confirmar Pago'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -207,26 +293,7 @@ class _SettlementsScreenState extends ConsumerState<SettlementsScreen> {
                                       SizedBox(
                                         width: double.infinity,
                                         child: ElevatedButton.icon(
-                                          onPressed: () async {
-                                            final messenger =
-                                                ScaffoldMessenger.of(context);
-                                            final success = await ref
-                                                .read(settlementsNotifierProvider
-                                                    .notifier)
-                                                .markAsPaid(
-                                                  groupId: widget.groupId,
-                                                  payment: payment,
-                                                );
-                                            if (success) {
-                                              messenger.showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Transferencia marcada como pagada. ¡Cuentas actualizadas! 🤝',
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          },
+                                          onPressed: () => _confirmPaySettlement(payment),
                                           icon: const Icon(Icons.check, size: 18),
                                           label: const Text('Marcar como Pagado'),
                                           style: ElevatedButton.styleFrom(

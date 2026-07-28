@@ -35,6 +35,15 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
             messenger.showSnackBar(
               SnackBar(content: Text('Te has unido al grupo "${group.name}".')),
             );
+          } else {
+            final errorMsg = ref.read(groupsNotifierProvider).errorMessage ??
+                'No se pudo unir al grupo. Verifica el código de invitación.';
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(errorMsg.replaceAll('Exception: ', '').replaceAll('ServerException: ', '')),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
         },
       ),

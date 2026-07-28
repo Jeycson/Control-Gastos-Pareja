@@ -12,8 +12,13 @@ import '../../domain/usecases/get_group_summary_usecase.dart';
 import '../../domain/usecases/get_user_groups_usecase.dart';
 import '../../domain/usecases/join_group_usecase.dart';
 
+import '../../../../core/providers/shared_preferences_provider.dart';
+
 final groupRemoteDataSourceProvider = Provider<GroupRemoteDataSource>((ref) {
-  return GroupRemoteDataSourceImpl(ref.watch(supabaseClientProvider));
+  return GroupRemoteDataSourceImpl(
+    ref.watch(supabaseClientProvider),
+    ref.watch(sharedPreferencesProvider),
+  );
 });
 
 final groupRepositoryProvider = Provider<GroupRepository>((ref) {

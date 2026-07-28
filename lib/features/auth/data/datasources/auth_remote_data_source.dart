@@ -37,24 +37,55 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<UserModel> identifyUser({required String fullName}) async {
-    String? userId = sharedPreferences.getString(_userIdKey);
-    if (userId == null || userId.isEmpty) {
-      userId = UuidGenerator.generateV4();
+    final cleanName = fullName.trim();
+    String? userId;
+    String matchedName = cleanName;
+
+    try {
+      final List<dynamic> existingProfiles = await supabaseClient
+          .from('profiles')
+          .select()
+          .ilike('full_name', cleanName);
+
+      if (existingProfiles.isNotEmpty) {
+        final profile = existingProfiles.first as Map<String, dynamic>;
+        userId = profile['id'] as String?;
+        if (profile['full_name'] != null &&
+            (profile['full_name'] as String).isNotEmpty) {
+          matchedName = profile['full_name'] as String;
+        }
+      }
+    } catch (_) {
+      // If offline or query fails, fall back to local stored credentials
     }
+
+    if (userId == null || userId.isEmpty) {
+      final currentName = sharedPreferences.getString(_userNameKey);
+      final currentId = sharedPreferences.getString(_userIdKey);
+
+      if (currentId != null &&
+          currentId.isNotEmpty &&
+          currentName != null &&
+          currentName.trim().toLowerCase() == cleanName.toLowerCase()) {
+        userId = currentId;
+      } else {
+        userId = UuidGenerator.generateV4();
+      }
+    }
+
+    await sharedPreferences.setString(_userIdKey, userId);
+    await sharedPreferences.setString(_userNameKey, matchedName);
 
     try {
       await supabaseClient.from('profiles').upsert({
         'id': userId,
-        'full_name': fullName,
+        'full_name': matchedName,
       });
     } catch (_) {
       // In case offline, offline/local storage still works
     }
 
-    await sharedPreferences.setString(_userIdKey, userId);
-    await sharedPreferences.setString(_userNameKey, fullName);
-
-    final user = UserModel(id: userId, fullName: fullName);
+    final user = UserModel(id: userId, fullName: matchedName);
     _authStateController.add(user);
     return user;
   }
@@ -63,6 +94,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void> signOut() async {
     await sharedPreferences.remove(_userIdKey);
     await sharedPreferences.remove(_userNameKey);
+    await sharedPreferences.remove('user_budget_start_date');
+    await sharedPreferences.remove('user_budget_end_date');
+    await sharedPreferences.remove('user_budget_weeks_count');
     _authStateController.add(null);
   }
 

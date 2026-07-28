@@ -95,6 +95,7 @@ CREATE TABLE public.transactions (
     category TEXT NOT NULL,
     is_shared BOOLEAN NOT NULL DEFAULT FALSE,
     is_extraordinary BOOLEAN NOT NULL DEFAULT FALSE,
+    is_full_payment BOOLEAN NOT NULL DEFAULT FALSE,
     description TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

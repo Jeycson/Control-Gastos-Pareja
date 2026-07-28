@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/budget_week_entity.dart';
 import '../models/budget_week_model.dart';
@@ -26,8 +27,9 @@ abstract class GroupRemoteDataSource {
 
 class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
   final SupabaseClient supabaseClient;
+  final SharedPreferences sharedPreferences;
 
-  GroupRemoteDataSourceImpl(this.supabaseClient);
+  GroupRemoteDataSourceImpl(this.supabaseClient, this.sharedPreferences);
 
   @override
   Future<List<GroupModel>> getUserGroups(String userId) async {
@@ -62,6 +64,15 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
     required String createdBy,
   }) async {
     final endDate = startDate.add(Duration(days: (weeksCount * 7) - 1));
+
+    // Ensure profile exists in Supabase so FK created_by -> profiles(id) is satisfied
+    final userName = sharedPreferences.getString('current_user_name') ?? 'Usuario';
+    try {
+      await supabaseClient.from('profiles').upsert({
+        'id': createdBy,
+        'full_name': userName,
+      });
+    } catch (_) {}
 
     final groupPayload = {
       'name': name,

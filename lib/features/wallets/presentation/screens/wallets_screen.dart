@@ -5,6 +5,8 @@ import '../widgets/adjust_balance_dialog.dart';
 import '../widgets/create_wallet_dialog.dart';
 import '../widgets/wallet_card.dart';
 
+import '../widgets/configure_budget_period_dialog.dart';
+
 class WalletsScreen extends ConsumerStatefulWidget {
   const WalletsScreen({super.key});
 
@@ -19,6 +21,15 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
     Future.microtask(() {
       ref.read(walletsNotifierProvider.notifier).loadWallets();
     });
+  }
+
+  void _showConfigurePeriodDialog(double totalBalance) {
+    showDialog(
+      context: context,
+      builder: (context) => ConfigureBudgetPeriodDialog(
+        totalWalletBalance: totalBalance,
+      ),
+    );
   }
 
   void _showCreateDialog() {
@@ -44,6 +55,15 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
             messenger.showSnackBar(
               const SnackBar(content: Text('Billetera creada con éxito.')),
             );
+          } else {
+            final errorMsg = ref.read(walletsNotifierProvider).errorMessage ??
+                'Ocurrió un error al crear la billetera.';
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(errorMsg.replaceAll('Exception: ', '').replaceAll('ServerException: ', '')),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
         },
       ),
@@ -66,6 +86,15 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
           if (success) {
             messenger.showSnackBar(
               const SnackBar(content: Text('Saldo actualizado correctamente.')),
+            );
+          } else {
+            final errorMsg = ref.read(walletsNotifierProvider).errorMessage ??
+                'Ocurrió un error al actualizar el saldo.';
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(errorMsg.replaceAll('Exception: ', '').replaceAll('ServerException: ', '')),
+                backgroundColor: Colors.red,
+              ),
             );
           }
         },
@@ -96,6 +125,15 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                 messenger.showSnackBar(
                   const SnackBar(content: Text('Billetera eliminada.')),
                 );
+              } else {
+                final errorMsg = ref.read(walletsNotifierProvider).errorMessage ??
+                    'Ocurrió un error al eliminar la billetera.';
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(errorMsg.replaceAll('Exception: ', '').replaceAll('ServerException: ', '')),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               }
             },
             child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
@@ -112,6 +150,19 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis Billeteras'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.date_range),
+            tooltip: 'Configurar Período Presupuestal',
+            onPressed: () {
+              final total = state.wallets.fold(
+                0.0,
+                (sum, wallet) => sum + wallet.balance,
+              );
+              _showConfigurePeriodDialog(total);
+            },
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () =>

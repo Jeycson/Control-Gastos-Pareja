@@ -58,6 +58,15 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           const SnackBar(content: Text('Grupo creado con éxito.')),
         );
         router.pop();
+      } else {
+        final errorMsg = ref.read(groupsNotifierProvider).errorMessage ??
+            'Ocurrió un error al crear el grupo. Verifica las tablas de Supabase.';
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(errorMsg.replaceAll('Exception: ', '').replaceAll('ServerException: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

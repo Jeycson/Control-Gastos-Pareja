@@ -7,6 +7,7 @@ class TransactionEntity {
   final String category;
   final bool isShared;
   final bool isExtraordinary;
+  final bool isFullPayment;
   final String description;
   final DateTime createdAt;
   final String? userName;
@@ -20,6 +21,7 @@ class TransactionEntity {
     required this.category,
     required this.isShared,
     required this.isExtraordinary,
+    this.isFullPayment = false,
     required this.description,
     required this.createdAt,
     this.userName,
@@ -34,6 +36,7 @@ class TransactionEntity {
     String? category,
     bool? isShared,
     bool? isExtraordinary,
+    bool? isFullPayment,
     String? description,
     DateTime? createdAt,
     String? userName,
@@ -47,6 +50,7 @@ class TransactionEntity {
       category: category ?? this.category,
       isShared: isShared ?? this.isShared,
       isExtraordinary: isExtraordinary ?? this.isExtraordinary,
+      isFullPayment: isFullPayment ?? this.isFullPayment,
       description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       userName: userName ?? this.userName,

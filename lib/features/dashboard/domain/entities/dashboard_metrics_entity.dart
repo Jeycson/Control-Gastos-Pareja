@@ -1,3 +1,4 @@
+import '../../../groups/domain/entities/budget_week_entity.dart';
 import '../../../transactions/domain/entities/transaction_entity.dart';
 import 'category_expense_entity.dart';
 
@@ -18,6 +19,7 @@ class DashboardMetricsEntity {
   final double totalExtraordinarySpent;
   final int? currentWeekNumber;
   final int? totalWeeks;
+  final List<BudgetWeekEntity>? budgetWeeks;
 
   const DashboardMetricsEntity({
     this.groupId,
@@ -36,6 +38,7 @@ class DashboardMetricsEntity {
     required this.totalExtraordinarySpent,
     this.currentWeekNumber,
     this.totalWeeks,
+    this.budgetWeeks,
   });
 
   DashboardMetricsEntity copyWith({
@@ -55,6 +58,7 @@ class DashboardMetricsEntity {
     double? totalExtraordinarySpent,
     int? currentWeekNumber,
     int? totalWeeks,
+    List<BudgetWeekEntity>? budgetWeeks,
   }) {
     return DashboardMetricsEntity(
       groupId: groupId ?? this.groupId,
@@ -78,6 +82,7 @@ class DashboardMetricsEntity {
           totalExtraordinarySpent ?? this.totalExtraordinarySpent,
       currentWeekNumber: currentWeekNumber ?? this.currentWeekNumber,
       totalWeeks: totalWeeks ?? this.totalWeeks,
+      budgetWeeks: budgetWeeks ?? this.budgetWeeks,
     );
   }
 }

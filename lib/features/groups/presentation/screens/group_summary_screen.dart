@@ -273,61 +273,6 @@ class _GroupSummaryScreenState extends ConsumerState<GroupSummaryScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Semanas de Presupuesto (${summary.budgetWeeks.length})',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: summary.budgetWeeks.length,
-                          itemBuilder: (context, index) {
-                            final week = summary.budgetWeeks[index];
-                            final startStr =
-                                '${week.startDate.day}/${week.startDate.month}';
-                            final endStr =
-                                '${week.endDate.day}/${week.endDate.month}';
-
-                            return Card(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              child: ListTile(
-                                title: Text('Semana ${week.weekNumber} ($startStr - $endStr)'),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Ajustado: ${Formatters.formatCurrency(week.adjustedAmount)} (Orig: ${Formatters.formatCurrency(week.plannedAmount)})',
-                                    ),
-                                    Text(
-                                      'Gastado: ${Formatters.formatCurrency(week.spentAmount)}',
-                                      style: TextStyle(
-                                        color: week.spentAmount > week.adjustedAmount
-                                            ? Colors.red
-                                            : Colors.grey[700],
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                trailing: OutlinedButton(
-                                  onPressed: () => _confirmCloseWeek(
-                                    index,
-                                    week.weekNumber,
-                                  ),
-                                  child: const Text(
-                                    'Cerrar',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
                       ],
                     ),
                   ),

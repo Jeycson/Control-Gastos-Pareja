@@ -158,6 +158,7 @@ abstract class DashboardCalculator {
       totalExtraordinarySpent: totalExtraordinarySpent,
       currentWeekNumber: currentWeekNumber,
       totalWeeks: group?.weeksCount ?? budgetWeeks?.length,
+      budgetWeeks: budgetWeeks,
     );
   }
 }

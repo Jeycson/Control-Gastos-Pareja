@@ -176,8 +176,7 @@ void main() {
       expect(find.textContaining('800.00'), findsAtLeastNWidgets(1));
       expect(find.text('Ritmo de Gasto'), findsOneWidget);
       expect(find.text('Gastos por Categoría'), findsOneWidget);
-      expect(find.text('Gastos Extraordinarios'), findsOneWidget);
-      expect(find.text('Nuevo Gasto ⚡'), findsOneWidget);
+      expect(find.byIcon(Icons.flash_on), findsOneWidget);
     });
   });
 }

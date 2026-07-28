@@ -58,13 +58,49 @@ class SettlementRemoteDataSourceImpl implements SettlementRemoteDataSource {
     String groupId,
   ) async {
     final balances = await getGroupMemberBalances(groupId);
-    return SettlementCalculator.calculateSettlements(balances);
+    final calculatedPayments = SettlementCalculator.calculateSettlements(balances);
+
+    // Also fetch pending settlements explicitly created in database
+    final pendingResp = await supabaseClient
+        .from('settlements')
+        .select('from_user_id, to_user_id, amount, profiles!settlements_from_user_id_fkey(full_name)')
+        .eq('group_id', groupId)
+        .eq('status', 'pending');
+
+    final pendingPayments = <SettlementPayment>[];
+    for (final item in (pendingResp as List<dynamic>)) {
+      final fromId = item['from_user_id'] as String;
+      final toId = item['to_user_id'] as String;
+      final amt = (item['amount'] as num).toDouble();
+      pendingPayments.add(
+        SettlementPayment(
+          fromUserId: fromId,
+          fromUserName: 'Miembro',
+          toUserId: toId,
+          toUserName: 'Pagador',
+          amount: amt,
+        ),
+      );
+    }
+
+    final allPayments = [...calculatedPayments];
+    for (final p in pendingPayments) {
+      if (!allPayments.any((existing) =>
+          existing.fromUserId == p.fromUserId &&
+          existing.toUserId == p.toUserId &&
+          existing.amount == p.amount)) {
+        allPayments.add(p);
+      }
+    }
+
+    return allPayments;
   }
 
   @override
   Future<void> markAsPaid({
     required String groupId,
     required SettlementPayment payment,
+    String? fromWalletId,
   }) async {
     await supabaseClient.from('settlements').insert({
       'group_id': groupId,
@@ -74,5 +110,22 @@ class SettlementRemoteDataSourceImpl implements SettlementRemoteDataSource {
       'status': 'settled',
       'settled_at': DateTime.now().toIso8601String(),
     });
+
+    if (fromWalletId != null && fromWalletId.isNotEmpty) {
+      final walletResp = await supabaseClient
+          .from('wallets')
+          .select('balance')
+          .eq('id', fromWalletId)
+          .maybeSingle();
+
+      if (walletResp != null) {
+        final currentBalance = (walletResp['balance'] as num).toDouble();
+        final newBalance = currentBalance - payment.amount;
+        await supabaseClient
+            .from('wallets')
+            .update({'balance': newBalance})
+            .eq('id', fromWalletId);
+      }
+    }
   }
 }

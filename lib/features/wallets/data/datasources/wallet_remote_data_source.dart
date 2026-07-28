@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/wallet_model.dart';
 
@@ -13,8 +14,9 @@ abstract class WalletRemoteDataSource {
 
 class WalletRemoteDataSourceImpl implements WalletRemoteDataSource {
   final SupabaseClient supabaseClient;
+  final SharedPreferences sharedPreferences;
 
-  WalletRemoteDataSourceImpl(this.supabaseClient);
+  WalletRemoteDataSourceImpl(this.supabaseClient, this.sharedPreferences);
 
   @override
   Future<List<WalletModel>> getWallets(String userId) async {
@@ -31,6 +33,15 @@ class WalletRemoteDataSourceImpl implements WalletRemoteDataSource {
 
   @override
   Future<WalletModel> createWallet(WalletModel wallet) async {
+    // Ensure profile exists in Supabase so FK user_id -> profiles(id) is satisfied
+    final userName = sharedPreferences.getString('current_user_name') ?? 'Usuario';
+    try {
+      await supabaseClient.from('profiles').upsert({
+        'id': wallet.userId,
+        'full_name': userName,
+      });
+    } catch (_) {}
+
     final response = await supabaseClient
         .from('wallets')
         .insert(wallet.toJson())
