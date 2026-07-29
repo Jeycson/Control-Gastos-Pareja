@@ -136,6 +136,8 @@ ALTER TABLE public.transactions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.budget_weeks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settlements DISABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS is_full_payment BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- 9. FUNCIÓN RPC ATÓMICA DE REGISTRO DE TRANSACCIONES
 CREATE OR REPLACE FUNCTION public.register_transaction_atomic(
     p_id UUID,
@@ -147,7 +149,8 @@ CREATE OR REPLACE FUNCTION public.register_transaction_atomic(
     p_is_shared BOOLEAN,
     p_is_extraordinary BOOLEAN,
     p_description TEXT,
-    p_created_at TIMESTAMPTZ
+    p_created_at TIMESTAMPTZ,
+    p_is_full_payment BOOLEAN DEFAULT FALSE
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -155,11 +158,13 @@ AS $$
 DECLARE
     v_new_tx JSONB;
     v_date_str DATE;
+    v_member_count INT;
+    v_share NUMERIC;
 BEGIN
     INSERT INTO public.transactions (
-        id, wallet_id, user_id, group_id, amount, category, is_shared, is_extraordinary, description, created_at
+        id, wallet_id, user_id, group_id, amount, category, is_shared, is_full_payment, is_extraordinary, description, created_at
     ) VALUES (
-        p_id, p_wallet_id, p_user_id, p_group_id, p_amount, p_category, p_is_shared, p_is_extraordinary, p_description, p_created_at
+        p_id, p_wallet_id, p_user_id, p_group_id, p_amount, p_category, p_is_shared, p_is_full_payment, p_is_extraordinary, p_description, p_created_at
     )
     RETURNING jsonb_build_object(
         'id', id,
@@ -169,6 +174,7 @@ BEGIN
         'amount', amount,
         'category', category,
         'is_shared', is_shared,
+        'is_full_payment', is_full_payment,
         'is_extraordinary', is_extraordinary,
         'description', description,
         'created_at', created_at
@@ -186,6 +192,21 @@ BEGIN
         WHERE group_id = p_group_id
           AND start_date <= v_date_str
           AND end_date >= v_date_str;
+
+        IF p_is_full_payment THEN
+            SELECT COUNT(*) INTO v_member_count
+            FROM public.group_members
+            WHERE group_id = p_group_id;
+
+            IF v_member_count > 1 THEN
+                v_share := p_amount / v_member_count;
+
+                INSERT INTO public.settlements (group_id, from_user_id, to_user_id, amount, status)
+                SELECT p_group_id, user_id, p_user_id, v_share, 'pending'::public.settlement_status
+                FROM public.group_members
+                WHERE group_id = p_group_id AND user_id <> p_user_id;
+            END IF;
+        END IF;
     END IF;
 
     RETURN v_new_tx;
