@@ -50,6 +50,7 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
           'p_amount': transaction.amount,
           'p_category': transaction.category,
           'p_is_shared': transaction.isShared,
+          'p_is_full_payment': transaction.isFullPayment,
           'p_is_extraordinary': transaction.isExtraordinary,
           'p_description': transaction.description,
           'p_created_at': transaction.createdAt.toIso8601String(),

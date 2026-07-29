@@ -189,6 +189,23 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
       return false;
     }
   }
+
+  Future<bool> removeMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final repo = ref.read(groupRepositoryProvider);
+      await repo.removeGroupMember(groupId: groupId, userId: userId);
+      await loadGroupSummary(groupId);
+      await loadUserGroups();
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      return false;
+    }
+  }
 }
 
 final groupsNotifierProvider =

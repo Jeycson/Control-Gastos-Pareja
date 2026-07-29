@@ -88,12 +88,10 @@ class _SettlementsScreenState extends ConsumerState<SettlementsScreen> {
                     .markAsPaid(
                       groupId: widget.groupId,
                       payment: payment,
+                      fromWalletId: selectedWallet?.id,
                     );
-                if (selectedWallet != null && success) {
-                  await ref.read(walletsNotifierProvider.notifier).updateBalance(
-                        walletId: selectedWallet!.id,
-                        newBalance: selectedWallet!.balance - payment.amount,
-                      );
+                if (success) {
+                  await ref.read(walletsNotifierProvider.notifier).loadWallets();
                 }
                 if (success) {
                   messenger.showSnackBar(

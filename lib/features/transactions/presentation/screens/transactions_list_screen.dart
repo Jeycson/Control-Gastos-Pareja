@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/utils/formatters.dart';
+import '../../../groups/presentation/providers/groups_provider.dart';
 import '../providers/transactions_provider.dart';
 
 class TransactionsListScreen extends ConsumerStatefulWidget {
@@ -24,6 +25,7 @@ class _TransactionsListScreenState
   void initState() {
     super.initState();
     Future.microtask(() {
+      ref.read(groupsNotifierProvider.notifier).loadUserGroups();
       ref
           .read(transactionsNotifierProvider.notifier)
           .loadTransactions(groupId: widget.groupId);
@@ -75,6 +77,29 @@ class _TransactionsListScreenState
                   onSelected: (_) => notifier.toggleOnlyExtraordinary(),
                 ),
                 const SizedBox(width: 8),
+                ChoiceChip(
+                  avatar: const Icon(Icons.apps, size: 16),
+                  label: const Text('Todos los Gastos'),
+                  selected: widget.groupId == null && state.selectedUser == null,
+                  onSelected: (_) {
+                    notifier.loadTransactions();
+                  },
+                ),
+                const SizedBox(width: 8),
+                ...ref.watch(groupsNotifierProvider).groups.map((group) {
+                  final isSelected = widget.groupId == group.id;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ChoiceChip(
+                      avatar: const Icon(Icons.group, size: 16),
+                      label: Text(group.name),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        notifier.loadTransactions(groupId: selected ? group.id : null);
+                      },
+                    ),
+                  );
+                }),
                 ..._categoryIcons.keys.map((category) {
                   final isSelected = state.selectedCategory == category;
                   return Padding(

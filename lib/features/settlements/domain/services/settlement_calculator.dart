@@ -24,6 +24,7 @@ abstract class SettlementCalculator {
   static List<MemberBalance> calculateMemberBalances({
     required List<Map<String, dynamic>> members,
     required List<Map<String, dynamic>> sharedTransactions,
+    List<Map<String, dynamic>> settledPayments = const [],
   }) {
     if (members.isEmpty) return [];
 
@@ -42,6 +43,19 @@ abstract class SettlementCalculator {
       final amount = (tx['amount'] as num).toDouble();
       totalSharedAmount += amount;
       contributions[uid] = (contributions[uid] ?? 0.0) + amount;
+    }
+
+    for (final s in settledPayments) {
+      final fromUid = s['fromUserId'] as String;
+      final toUid = s['toUserId'] as String;
+      final amount = (s['amount'] as num).toDouble();
+
+      if (contributions.containsKey(fromUid)) {
+        contributions[fromUid] = (contributions[fromUid] ?? 0.0) + amount;
+      }
+      if (contributions.containsKey(toUid)) {
+        contributions[toUid] = (contributions[toUid] ?? 0.0) - amount;
+      }
     }
 
     final fairShare = totalSharedAmount / members.length;

@@ -99,4 +99,19 @@ class GroupRepositoryImpl implements GroupRepository {
       throw ServerException(message: 'Error al actualizar semanas de presupuesto: $e');
     }
   }
+
+  @override
+  Future<void> removeGroupMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    try {
+      await remoteDataSource.removeGroupMember(
+        groupId: groupId,
+        userId: userId,
+      );
+    } catch (e) {
+      throw ServerException(message: 'Error al remover miembro del grupo: $e');
+    }
+  }
 }

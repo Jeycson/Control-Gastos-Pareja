@@ -20,4 +20,8 @@ abstract class GroupRepository {
   Future<List<BudgetWeekEntity>> getGroupBudgetWeeks(String groupId);
   Future<double> getGroupTotalSpent(String groupId);
   Future<void> updateBudgetWeeks(List<BudgetWeekEntity> weeks);
+  Future<void> removeGroupMember({
+    required String groupId,
+    required String userId,
+  });
 }

@@ -7,5 +7,6 @@ abstract class SettlementRepository {
   Future<void> markAsPaid({
     required String groupId,
     required SettlementPayment payment,
+    String? fromWalletId,
   });
 }

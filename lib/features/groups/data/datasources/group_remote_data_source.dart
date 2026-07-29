@@ -23,6 +23,10 @@ abstract class GroupRemoteDataSource {
   Future<List<BudgetWeekModel>> getGroupBudgetWeeks(String groupId);
   Future<double> getGroupTotalSpent(String groupId);
   Future<void> updateBudgetWeeks(List<BudgetWeekEntity> weeks);
+  Future<void> removeGroupMember({
+    required String groupId,
+    required String userId,
+  });
 }
 
 class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
@@ -198,5 +202,17 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         'spent_amount': week.spentAmount,
       }).eq('id', week.id);
     }
+  }
+
+  @override
+  Future<void> removeGroupMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    await supabaseClient
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', userId);
   }
 }

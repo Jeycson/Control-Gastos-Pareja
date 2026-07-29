@@ -89,11 +89,16 @@ class SettlementsNotifier extends StateNotifier<SettlementsState> {
   Future<bool> markAsPaid({
     required String groupId,
     required SettlementPayment payment,
+    String? fromWalletId,
   }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       await markSettlementPaidUseCase(
-        MarkSettlementPaidParams(groupId: groupId, payment: payment),
+        MarkSettlementPaidParams(
+          groupId: groupId,
+          payment: payment,
+          fromWalletId: fromWalletId,
+        ),
       );
       await loadSettlements(groupId);
       return true;

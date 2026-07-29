@@ -9,6 +9,7 @@ abstract class SettlementRemoteDataSource {
   Future<void> markAsPaid({
     required String groupId,
     required SettlementPayment payment,
+    String? fromWalletId,
   });
 }
 
@@ -47,9 +48,25 @@ class SettlementRemoteDataSourceImpl implements SettlementRemoteDataSource {
       };
     }).toList();
 
+    // 3. Fetch settled payments for group
+    final settledResponse = await supabaseClient
+        .from('settlements')
+        .select('from_user_id, to_user_id, amount')
+        .eq('group_id', groupId)
+        .eq('status', 'settled');
+
+    final settledPayments = (settledResponse as List<dynamic>).map((s) {
+      return {
+        'fromUserId': s['from_user_id'] as String,
+        'toUserId': s['to_user_id'] as String,
+        'amount': (s['amount'] as num).toDouble(),
+      };
+    }).toList();
+
     return SettlementCalculator.calculateMemberBalances(
       members: members,
       sharedTransactions: sharedTxs,
+      settledPayments: settledPayments,
     );
   }
 
@@ -125,6 +142,20 @@ class SettlementRemoteDataSourceImpl implements SettlementRemoteDataSource {
             .from('wallets')
             .update({'balance': newBalance})
             .eq('id', fromWalletId);
+
+        // Record a transaction for the payer's personal history
+        await supabaseClient.from('transactions').insert({
+          'wallet_id': fromWalletId,
+          'user_id': payment.fromUserId,
+          'group_id': groupId,
+          'amount': payment.amount,
+          'category': 'Otros',
+          'is_shared': false,
+          'is_full_payment': false,
+          'is_extraordinary': false,
+          'description': 'Ajuste Cuentas Claras para ${payment.toUserName}',
+          'created_at': DateTime.now().toIso8601String(),
+        });
       }
     }
   }

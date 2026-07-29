@@ -33,9 +33,14 @@ class SettlementRepositoryImpl implements SettlementRepository {
   Future<void> markAsPaid({
     required String groupId,
     required SettlementPayment payment,
+    String? fromWalletId,
   }) async {
     try {
-      await remoteDataSource.markAsPaid(groupId: groupId, payment: payment);
+      await remoteDataSource.markAsPaid(
+        groupId: groupId,
+        payment: payment,
+        fromWalletId: fromWalletId,
+      );
     } catch (e) {
       throw ServerException(message: 'Error al marcar liquidación como pagada: $e');
     }

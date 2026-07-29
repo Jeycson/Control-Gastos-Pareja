@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/groups_provider.dart';
 
 class GroupSummaryScreen extends ConsumerStatefulWidget {
@@ -252,6 +253,10 @@ class _GroupSummaryScreenState extends ConsumerState<GroupSummaryScreen> {
                             separatorBuilder: (context, index) => const Divider(height: 1),
                             itemBuilder: (context, index) {
                               final member = summary.members[index];
+                              final currentUser = ref.watch(authNotifierProvider).user;
+                              final isSelf = currentUser?.id == member.userId;
+                              final isAdmin = summary.members.any((m) => m.userId == currentUser?.id && m.role == 'admin');
+
                               return ListTile(
                                 leading: CircleAvatar(
                                   child: Text(
@@ -260,14 +265,69 @@ class _GroupSummaryScreenState extends ConsumerState<GroupSummaryScreen> {
                                         : 'U',
                                   ),
                                 ),
-                                title: Text(member.fullName),
-                                trailing: Chip(
-                                  label: Text(
-                                    member.role == 'admin'
-                                        ? 'Administrador'
-                                        : 'Miembro',
-                                    style: const TextStyle(fontSize: 11),
-                                  ),
+                                title: Text('${member.fullName}${isSelf ? ' (Tú)' : ''}'),
+                                subtitle: Text(member.role == 'admin' ? 'Administrador' : 'Miembro'),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (isSelf || isAdmin)
+                                      IconButton(
+                                        icon: Icon(
+                                          isSelf ? Icons.exit_to_app : Icons.person_remove_outlined,
+                                          color: Colors.red.shade400,
+                                          size: 20,
+                                        ),
+                                        tooltip: isSelf ? 'Salir del Grupo' : 'Remover Miembro',
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (dialogCtx) => AlertDialog(
+                                              title: Text(isSelf ? '¿Salir del grupo?' : '¿Remover miembro?'),
+                                              content: Text(
+                                                isSelf
+                                                    ? '¿Estás seguro de que deseas salir de "${summary.group.name}"?'
+                                                    : '¿Estás seguro de que deseas remover a ${member.fullName} del grupo?',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                                                  child: const Text('Cancelar'),
+                                                ),
+                                                ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                                  onPressed: () async {
+                                                    Navigator.of(dialogCtx).pop();
+                                                    final messenger = ScaffoldMessenger.of(context);
+                                                    final router = GoRouter.of(context);
+                                                    final success = await ref
+                                                        .read(groupsNotifierProvider.notifier)
+                                                        .removeMember(
+                                                          groupId: widget.groupId,
+                                                          userId: member.userId,
+                                                        );
+                                                    if (success) {
+                                                      messenger.showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            isSelf
+                                                                ? 'Has salido del grupo.'
+                                                                : '${member.fullName} ha sido removido.',
+                                                          ),
+                                                        ),
+                                                      );
+                                                      if (isSelf) {
+                                                        router.pop();
+                                                      }
+                                                    }
+                                                  },
+                                                  child: Text(isSelf ? 'Salir' : 'Remover'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                  ],
                                 ),
                               );
                             },
