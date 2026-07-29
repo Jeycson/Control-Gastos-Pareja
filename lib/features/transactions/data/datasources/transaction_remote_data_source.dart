@@ -26,7 +26,26 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     if (groupId != null && groupId.isNotEmpty) {
       query = query.eq('group_id', groupId);
     } else {
-      query = query.eq('user_id', userId);
+      try {
+        final userGroupsResp = await supabaseClient
+            .from('group_members')
+            .select('group_id')
+            .eq('user_id', userId);
+
+        final groupIds = (userGroupsResp as List<dynamic>)
+            .map((g) => g['group_id'] as String)
+            .where((id) => id.isNotEmpty)
+            .toList();
+
+        if (groupIds.isNotEmpty) {
+          final groupFilters = groupIds.map((id) => 'group_id.eq.$id').join(',');
+          query = query.or('user_id.eq.$userId,$groupFilters');
+        } else {
+          query = query.eq('user_id', userId);
+        }
+      } catch (_) {
+        query = query.eq('user_id', userId);
+      }
     }
 
     final response = await query.order('created_at', ascending: false);

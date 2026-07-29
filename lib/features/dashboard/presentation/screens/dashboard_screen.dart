@@ -22,8 +22,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  String? _selectedGroupId;
-
   @override
   void initState() {
     super.initState();
@@ -32,15 +30,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       try {
         await ref.read(walletsNotifierProvider.notifier).loadWallets();
       } catch (_) {}
-      final groups = ref.read(groupsNotifierProvider).groups;
-      if (mounted) {
-        setState(() {
-          _selectedGroupId = groups.isNotEmpty ? groups.first.id : null;
-        });
-      }
       if (mounted) {
         await ref
-            .read(dashboardNotifierProvider(_selectedGroupId).notifier)
+            .read(dashboardNotifierProvider(null).notifier)
             .loadDashboard(isRefresh: true);
       }
     });
@@ -52,7 +44,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       await ref.read(walletsNotifierProvider.notifier).loadWallets();
     } catch (_) {}
     await ref
-        .read(dashboardNotifierProvider(_selectedGroupId).notifier)
+        .read(dashboardNotifierProvider(null).notifier)
         .loadDashboard(isRefresh: true);
   }
 
@@ -113,18 +105,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final theme = Theme.of(context);
     final user = ref.watch(authNotifierProvider).user;
     final groupsState = ref.watch(groupsNotifierProvider);
-    final asyncDashboard =
-        ref.watch(dashboardNotifierProvider(_selectedGroupId));
+    final asyncDashboard = ref.watch(dashboardNotifierProvider(null));
 
-    final progressMetrics =
-        ref.watch(dashboardProgressProvider(_selectedGroupId));
-    final categoryExpenses =
-        ref.watch(dashboardCategoryExpensesProvider(_selectedGroupId));
-    final extraordinaryExpenses =
-        ref.watch(dashboardExtraordinaryExpensesProvider(_selectedGroupId));
+    final progressMetrics = ref.watch(dashboardProgressProvider(null));
+    final categoryExpenses = ref.watch(dashboardCategoryExpensesProvider(null));
+    final extraordinaryExpenses = ref.watch(dashboardExtraordinaryExpensesProvider(null));
 
-    if (_selectedGroupId != null && _selectedGroupId!.isNotEmpty) {
-      ref.watch(realtimeGroupTransactionsProvider(_selectedGroupId!));
+    if (groupsState.groups.isNotEmpty) {
+      for (final g in groupsState.groups) {
+        ref.watch(realtimeGroupTransactionsProvider(g.id));
+      }
     }
 
     return Scaffold(
@@ -197,13 +187,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 label: 'Historial',
                 onTap: () => context.push('/transactions'),
               ),
-              if (_selectedGroupId != null)
+              if (groupsState.groups.isNotEmpty)
                 _buildBottomAction(
                   context,
                   icon: Icons.handshake_outlined,
                   label: 'Cuentas',
                   onTap: () =>
-                      context.push('/settlements/${_selectedGroupId!}'),
+                      context.push('/settlements/${groupsState.groups.first.id}'),
                 ),
             ],
           ),
@@ -217,7 +207,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Saludo y selector de Grupo
+              // Saludo
               Card(
                 elevation: 1,
                 color: theme.colorScheme.surfaceContainerHighest,
@@ -237,62 +227,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Resumen general de tu ciclo presupuestario',
+                        'Resumen general de tu cuenta personal y grupos',
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       ),
-                      if (groupsState.groups.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(Icons.groups, size: 20),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Grupo:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.surface,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border:
-                                      Border.all(color: Colors.grey.shade300),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String?>(
-                                    isExpanded: true,
-                                    value: _selectedGroupId,
-                                    items: [
-                                      const DropdownMenuItem<String?>(
-                                        value: null,
-                                        child: Text('Todos mis gastos'),
-                                      ),
-                                      ...groupsState.groups.map((g) {
-                                        return DropdownMenuItem<String?>(
-                                          value: g.id,
-                                          child: Text(g.name),
-                                        );
-                                      }),
-                                    ],
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _selectedGroupId = val;
-                                      });
-                                      ref
-                                          .read(dashboardNotifierProvider(val)
-                                              .notifier)
-                                          .loadDashboard();
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -433,9 +370,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     if (progressMetrics != null)
                       DoubleProgressBarWidget(metrics: progressMetrics),
 
-                    // 2. Desglose Semanal del Período (Modo Personal)
-                    if (_selectedGroupId == null &&
-                        metrics.budgetWeeks != null &&
+                    // 2. Desglose Semanal del Período
+                    if (metrics.budgetWeeks != null &&
                         metrics.budgetWeeks!.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Card(
@@ -453,7 +389,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Desglose Semanal Personal 📅',
+                                    'Desglose Semanal 📅',
                                     style:
                                         theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.bold,

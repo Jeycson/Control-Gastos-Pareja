@@ -237,6 +237,109 @@ class _GroupSummaryScreenState extends ConsumerState<GroupSummaryScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
+                        if (summary.budgetWeeks.isNotEmpty) ...[
+                          Text(
+                            'Desglose Semanal del Presupuesto 📅',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: summary.budgetWeeks.length,
+                                separatorBuilder: (context, index) =>
+                                    const Divider(height: 12),
+                                itemBuilder: (context, index) {
+                                  final week = summary.budgetWeeks[index];
+                                  final startStr =
+                                      '${week.startDate.day}/${week.startDate.month}';
+                                  final endStr =
+                                      '${week.endDate.day}/${week.endDate.month}';
+                                  final isOverspent =
+                                      week.spentAmount > week.adjustedAmount;
+
+                                  return Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 18,
+                                        backgroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .primaryContainer,
+                                        child: Text(
+                                          'S${week.weekNumber}',
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Semana ${week.weekNumber} ($startStr - $endStr)',
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Presupuestado: ${Formatters.formatCurrency(week.adjustedAmount)}',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey[600]),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            'Gastado: ${Formatters.formatCurrency(week.spentAmount)}',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: isOverspent
+                                                  ? Colors.red
+                                                  : Colors.green,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          InkWell(
+                                            onTap: () => _confirmCloseWeek(
+                                                index, week.weekNumber),
+                                            child: Text(
+                                              'Cerrar semana',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                         Text(
                           'Miembros (${summary.members.length})',
                           style: Theme.of(context)

@@ -174,9 +174,35 @@ class GroupRemoteDataSourceImpl implements GroupRemoteDataSource {
         .eq('group_id', groupId)
         .order('week_number', ascending: true);
 
-    return (response as List<dynamic>)
+    final weeks = (response as List<dynamic>)
         .map((json) => BudgetWeekModel.fromJson(json as Map<String, dynamic>))
         .toList();
+
+    final txResponse = await supabaseClient
+        .from('transactions')
+        .select('amount, created_at')
+        .eq('group_id', groupId)
+        .eq('is_shared', true);
+
+    final txs = (txResponse as List<dynamic>);
+
+    return weeks.map((w) {
+      double calculatedSpent = 0.0;
+      for (final tx in txs) {
+        final createdAtStr = tx['created_at'] as String;
+        final createdAt = DateTime.tryParse(createdAtStr)?.toLocal();
+        if (createdAt != null) {
+          final txDate = DateTime(createdAt.year, createdAt.month, createdAt.day);
+          final wStart = DateTime(w.startDate.year, w.startDate.month, w.startDate.day);
+          final wEnd = DateTime(w.endDate.year, w.endDate.month, w.endDate.day, 23, 59, 59);
+
+          if (!txDate.isBefore(wStart) && !txDate.isAfter(wEnd)) {
+            calculatedSpent += (tx['amount'] as num).toDouble();
+          }
+        }
+      }
+      return w.copyWith(spentAmount: calculatedSpent);
+    }).toList();
   }
 
   @override
